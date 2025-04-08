@@ -5,7 +5,7 @@ import { loadCoreDataFromStorage, saveProgressToLocalStorage, saveSkillLevelsFro
 // Import UI functions needed for setup or direct call
 import { populateDiaries, populateSkillSummary, openSkillEditor, closeSkillEditor, showView, populateMiscellaneousGoals, populateMilestoneGoals, populateGearProgression, updateCombatLevelDisplay, updateOverallStats, updateGlobalProgress, updateDashboardSummaryProgress, applyLoadedDiaryProgress, updateCumulativeGearProgress, updateCumulativeGoalProgress, updateGearStageCost } from './ui.js';
 // Import Event handlers needed for direct listener setup
-import { handleViewNavigation, handleSkillNameClick, handleMiscGoalDescKey, addMiscellaneousGoal, toggleDiaryContent as toggleDiaryHandler } from './events.js'; // Import specific handlers needed here
+import { handleViewNavigation, handleSkillNameClick, handleMiscGoalDescKey, addMiscellaneousGoal, toggleDiaryContent as toggleDiaryHandler, handleDifficultyTabClick } from './events.js'; // Import specific handlers needed here
 // Import Hiscores function
 import { fetchHiscoresData } from './hiscores.js';
 
@@ -107,13 +107,6 @@ function setupSortAndSkillClickListeners() {
     document.getElementById('skill-summary')?.addEventListener('click', handleSkillNameClick); // events function
 }
 
-function setupDiaryToggle() { // Separate setup for clarity
-    const diariesContainer = document.getElementById('diaries-tab');
-    if (diariesContainer) {
-        diariesContainer.addEventListener('click', toggleDiaryHandler); // events function
-    }
-}
-
 // Function to apply the theme
 function applyTheme(theme) {
     if (theme === 'dark') {
@@ -181,19 +174,41 @@ populateSkillSummary('level');
 
     // --- 5. Setup Event Listeners ---
     setupViewNavigation();
+    // --- Set initial skill button state ---
     const initialViewId = localStorage.getItem('activeView') || 'dashboard-view';
-const enableSkillModalButtons = (initialViewId === 'dashboard-view');
-const skillModalSaveButton = document.getElementById('save-skills');
-const skillModalResetButton = document.getElementById('reset-skills');
-if (skillModalSaveButton) skillModalSaveButton.disabled = !enableSkillModalButtons;
-if (skillModalResetButton) skillModalResetButton.disabled = !enableSkillModalButtons;
-    setupDiaryToggle();
-    setupSaveButton();
-    setupAddGoalButton();
-    setupSkillEditor();
-    setupImportExport();
-    setupHiscoresFetching();
-    setupSortAndSkillClickListeners();
+    const enableSkillModalButtons = (initialViewId === 'dashboard-view');
+    const skillModalSaveButton = document.getElementById('save-skills');
+    const skillModalResetButton = document.getElementById('reset-skills');
+    if (skillModalSaveButton) skillModalSaveButton.disabled = !enableSkillModalButtons;
+    if (skillModalResetButton) skillModalResetButton.disabled = !enableSkillModalButtons;
+    
+    // --- Attach listeners to the NEW diary grid ---
+const diariesGrid = document.querySelector('#diaries-view .diaries-grid');
+if (diariesGrid) {
+    // Listener specifically for expanding/collapsing CARDS (clicks on .diary-header)
+    diariesGrid.addEventListener('click', (event) => {
+        // Only trigger toggleDiaryHandler if the click was inside a header
+        if (event.target.closest('.diary-header')) {
+            toggleDiaryHandler(event); // Pass the event to the handler
+        }
+    });
 
-    console.log("Dashboard Initialized.");
+    // Listener specifically for switching DIFFICULTY TABS (clicks on .diff-button)
+    diariesGrid.addEventListener('click', (event) => {
+         // Only trigger handleDifficultyTabClick if the click was inside a button
+         if (event.target.closest('.diff-button')) {
+             handleDifficultyTabClick(event); // Pass the event to the handler
+         }
+    });
+}
+// -------------------------------------------
+
+setupSaveButton(); // This button now saves the merged diary state
+setupAddGoalButton();
+setupSkillEditor();
+setupImportExport();
+setupHiscoresFetching();
+setupSortAndSkillClickListeners();
+
+console.log("Dashboard Initialized.");
 });

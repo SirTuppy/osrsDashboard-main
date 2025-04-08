@@ -1,25 +1,40 @@
 // events.js - TOP OF FILE
 import { miscellaneousGoals, milestoneGoalsData, gearProgressionData } from './data.js';
 import { reorderMiscellaneousGoals, saveMiscellaneousGoals, saveMilestoneGoals, saveGearProgression } from './storage.js';
-import { showView, updateGearStageCost } from './ui.js'; // Adjust path if needed
+import { showView, updateGearStageCost, loadDiaryDifficultyContent, updateCompleteAllCheckboxState } from './ui.js'; // Adjust path if needed
 import { populateMiscellaneousGoals, updateMilestoneTierProgress, updateCumulativeGoalProgress, updateGearStageProgress, updateCumulativeGearProgress, updateTaskProgressDisplay, updateDiaryHeaderProgress, updateGlobalProgress, updateDashboardSummaryProgress } from './ui.js'; // Need UI update functions
 
 // Drag state variables
 let draggedElement = null;
 let dragSourceIndex = null;
 
+/**
+ * Handles changes to individual diary task checkboxes.
+ * @param {Event} event
+ */
 export function handleDiaryTaskChange(event) {
-     const checkbox = event.target;
-     const dKey = checkbox.dataset.diary;
-     const diff = checkbox.dataset.difficulty;
-     checkbox.closest('.task')?.classList.toggle('task-completed', checkbox.checked);
-     // Call imported UI functions
-     updateTaskProgressDisplay(dKey, diff);
-     updateDiaryHeaderProgress(dKey);
-     updateGlobalProgress();
-     updateDashboardSummaryProgress();
-     // Saving is handled by main button
- }
+    const checkbox = event.target;
+    if (!checkbox.classList.contains('task-checkbox')) return; // Ensure it's a task checkbox
+
+    const diaryKey = checkbox.dataset.diary;
+    const difficulty = checkbox.dataset.difficulty;
+
+    // Toggle visual style of the task row
+    checkbox.closest('.task')?.classList.toggle('task-completed', checkbox.checked);
+
+    // Call imported UI functions
+    updateTaskProgressDisplay(diaryKey, difficulty); // Update difficulty-specific progress
+    updateDiaryHeaderProgress(diaryKey);             // Update overall card progress
+    updateGlobalProgress();                          // Update header overall progress
+    updateDashboardSummaryProgress();                // Update dashboard summary section
+
+    // --- ADD THIS ---
+    // Update the state of the corresponding "Complete All" checkbox
+    updateCompleteAllCheckboxState(diaryKey, difficulty);
+    // --------------
+
+    // Saving is handled by main button
+}
 
  export function handleMiscGoalCheck(event) {
     const index = parseInt(event.target.dataset.index);
@@ -43,6 +58,69 @@ export function handleMiscGoalDescChange(event) {
         event.target.blur();
     }
  }
+
+ /**
+ * Handles toggling the master "Complete All" checkbox for a difficulty.
+ * @param {Event} event
+ */
+export function handleCompleteAllToggle(event) {
+    const masterCheckbox = event.target;
+    if (!masterCheckbox.classList.contains('complete-all-checkbox')) return;
+
+    const diaryKey = masterCheckbox.dataset.diary;
+    const difficulty = masterCheckbox.dataset.difficulty;
+    const isChecked = masterCheckbox.checked;
+
+    if (!diaryKey || !difficulty) return;
+
+    // Find the parent task category or tasks container for this specific section
+    const taskCategory = masterCheckbox.closest('.task-category');
+    if (!taskCategory) return;
+
+    // Find all individual task checkboxes within this specific category
+    const taskCheckboxes = taskCategory.querySelectorAll(`.task-checkbox[data-diary="${diaryKey}"][data-difficulty="${difficulty}"]`);
+
+    console.log(`Toggling all ${difficulty} tasks in ${diaryKey} to ${isChecked}`);
+
+    taskCheckboxes.forEach(checkbox => {
+        // Only change and dispatch if the state is different to avoid redundant updates/loops
+        if (checkbox.checked !== isChecked) {
+            checkbox.checked = isChecked;
+            // IMPORTANT: Dispatch a change event so handleDiaryTaskChange runs for each task
+            // This ensures individual task styling and progress bars update correctly.
+            checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    });
+
+    // Note: We don't call updateCompleteAllCheckboxState here because
+    // handleDiaryTaskChange (triggered by the dispatched event) should call it.
+}
+
+ /**
+ * Handles clicks on the difficulty tabs within a diary card.
+ * @param {Event} event
+ */
+export function handleDifficultyTabClick(event) {
+    const button = event.target.closest('.diff-button');
+    if (!button) return; // Click wasn't on a difficulty button
+
+    const diaryKey = button.dataset.diary;
+    const difficulty = button.dataset.difficulty;
+    const difficultyTabsContainer = button.closest('.difficulty-tabs');
+
+    if (!diaryKey || !difficulty || !difficultyTabsContainer) return;
+
+    // Remove active state from all buttons in this tab set
+    difficultyTabsContainer.querySelectorAll('.diff-button').forEach(btn => {
+        btn.classList.remove('active-diff');
+    });
+
+    // Add active state to the clicked button
+    button.classList.add('active-diff');
+
+    // Load the content for the selected difficulty
+    loadDiaryDifficultyContent(diaryKey, difficulty);
+}
 
  export function handleMiscGoalRemove(event) { // Renamed from removeMiscellaneousGoal
     const button = event.target.closest('.remove-goal-button');
@@ -91,26 +169,38 @@ export function handleGearItemChange(event) {
     }
 }
 
+// events.js
+
 export function toggleDiaryContent(event) {
     // Find the diary header that was clicked (or whose child was clicked)
     const clickedHeader = event.target.closest('.diary-header');
     if (!clickedHeader) return; // Exit if the click wasn't on a header
 
-    // Find the content associated with the clicked header
-    const targetContent = clickedHeader.nextElementSibling;
-    if (!targetContent || !targetContent.classList.contains('diary-content')) {
-        console.warn("Could not find diary content for clicked header:", clickedHeader);
-        return; // Exit if content isn't found right after header
+    // Find the parent diary card
+    const parentCard = clickedHeader.closest('.diary-card');
+    if (!parentCard) {
+        console.warn("Could not find parent diary card for clicked header:", clickedHeader);
+        return;
+    }
+
+    // Find the content associated with THIS card
+    const targetContent = parentCard.querySelector('.diary-content'); // Find content within the same card
+    if (!targetContent) {
+        console.warn("Could not find diary content within the card:", parentCard);
+        return;
     }
 
     // Check if the clicked content is *already* active
     const isAlreadyActive = targetContent.classList.contains('active');
 
-    // Find the main container for all diaries
-    const diariesContainer = document.getElementById('diaries-tab');
-    if (!diariesContainer) return; // Should not happen, but safe check
+    // Find the main container for all diary cards in this view
+    const diariesContainer = parentCard.closest('.diaries-grid'); // Find the grid container
+    if (!diariesContainer) {
+        console.warn("Could not find the main diaries grid container.");
+        return;
+    }
 
-    // 1. Close ALL currently open diary contents first
+    // 1. Close ALL currently open diary contents within this grid first
     diariesContainer.querySelectorAll('.diary-content.active').forEach(activeContent => {
         activeContent.classList.remove('active');
     });

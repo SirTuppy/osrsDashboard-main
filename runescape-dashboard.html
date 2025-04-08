@@ -3,15 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RuneScape Dashboard - Ancient Tome</title>
+    <title>RuneScape Dashboard</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Import Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
 </head>
-<body> <!-- Class will be added/removed by JS -->
-    <!-- H1 moved into the header below -->
+<body>
 
     <div class="dashboard">
         <!-- Player Info Header (Contains Title and Nav) -->
@@ -33,14 +28,13 @@
                            <input type="file" id="import-file-input" accept=".json" style="display: none;">
                            <button id="import-data-button" class="filter-button" title="Import saved dashboard data (.json)">Import</button>
                            <button id="export-data-button" class="filter-button" title="Export current dashboard data (.json)">Export</button>
-                           <!-- !!! THEME TOGGLE BUTTON ADDED HERE !!! -->
-                           <button id="theme-toggle-button" class="filter-button" title="Toggle light/dark theme">🌙 Dark Mode</button>
                        </div>
                     </div>
 
                     <!-- Bottom Row: Navigation Tabs -->
                     <div class="view-navigation header-view-navigation">
                         <button class="filter-button active-view" data-view="dashboard-view">Dashboard</button>
+                        <button class="filter-button" data-view="diaries-view">Diaries</button> <!-- MOVED/ADDED HERE -->
                         <button class="filter-button" data-view="goals-view">Milestone Goals</button>
                         <button class="filter-button" data-view="gear-view">Gear Progression</button>
                     </div>
@@ -48,15 +42,16 @@
                 </div> <!-- End of stats-header-content -->
             </div>
             <div class="overall-stats">
-                <div>Elite Tasks Completed: <span id="elite-completed">0</span>/<span id="elite-total">0</span></div>
-                <div>Overall Elite Progress: <span id="overall-progress">0</span>%</div>
+                <!-- These stats might need adjustment later when full diaries are added -->
+                <div>Tasks Completed: <span id="elite-completed">0</span>/<span id="elite-total">0</span></div>
+                <div>Overall Diary Progress: <span id="overall-progress">0</span>%</div>
                 <div>Total Levels Needed: <span id="total-levels-needed">0</span></div>
                 <div>Total XP Needed: <span id="total-xp-needed">0</span></div>
                 <div class="time-remaining">Est. Time Remaining: <span id="total-time">0</span> hrs</div>
             </div>
         </div>
 
-        <!-- Main Dashboard View (Diaries & Skills) -->
+        <!-- Main Dashboard View (Summaries & Skills) -->
         <div id="dashboard-view">
             <div class="flex-row">
 
@@ -72,6 +67,11 @@
                         <div class="summary-category" id="summary-gear">
                             <!-- Rows will be added by JS -->
                         </div>
+                        <h4>BIS Gear Progression</h4>
+                         <div class="summary-category" id="summary-bis-gear">
+                             <p style="color: var(--text-secondary); font-size: 0.9em; text-align: center; margin: 10px 0;">(Not Yet Implemented)</p>
+                            <!-- Rows will be added by JS when implemented -->
+                         </div>
                         <h4>Achievement Diary Progression</h4>
                         <div class="summary-category" id="summary-diaries">
                             <!-- Rows will be added by JS -->
@@ -79,7 +79,7 @@
                     </div>
                     <!-- END Dashboard Summary Section -->
 
-                    <!-- !!! MISCELLANEOUS GOALS (MOVED HERE) !!! -->
+                    <!-- Miscellaneous Goals -->
                     <div class="miscellaneous-goals-container container">
                          <div class="stats-header">
                              <div>Miscellaneous Goals</div>
@@ -89,231 +89,68 @@
                              <!-- Goals will be added here by JavaScript -->
                          </div>
                      </div>
-                    <!-- !!! END MISCELLANEOUS GOALS !!! -->
+                    <!-- END Miscellaneous Goals -->
 
                 </div> <!-- END Wrapper for the left column -->
 
 
-                <!-- Wrapper for the RIGHT column (Diaries + Skills Summary) -->
-                <div class="diaries-container">
-                    <div id="diaries-tab" class="flex-column">
-                        <!-- START: Diary Cards -->
-                         <div class="diary-card">
-                            <div class="diary-header" data-diary="ardougne">
-                                <div class="diary-title-row">
-                                    <span class="diary-name">Ardougne Diary</span>
-                                    <span class="diary-progress">
-                                        <span class="diary-percentage">0%</span>
-                                        <span class="diary-tasks-count">0/0 Elite</span>
-                                    </span>
-                                </div>
-                                <div class="diary-progress-bar-container">
-                                    <div class="diary-progress-bar progress-ardougne"></div>
-                                </div>
-                            </div>
-                            <div class="diary-content" id="ardougne-diary"></div>
-                        </div>
-                         <div class="diary-card">
-                            <div class="diary-header" data-diary="desert">
-                                <div class="diary-title-row">
-                                    <span class="diary-name">Desert Diary</span>
-                                    <span class="diary-progress">
-                                        <span class="diary-percentage">0%</span>
-                                        <span class="diary-tasks-count">0/0 Elite</span>
-                                    </span>
-                                </div>
-                                <div class="diary-progress-bar-container">
-                                    <div class="diary-progress-bar progress-desert"></div>
-                                </div>
-                            </div>
-                            <div class="diary-content" id="desert-diary"></div>
-                        </div>
-                         <div class="diary-card">
-                            <div class="diary-header" data-diary="falador">
-                                <div class="diary-title-row">
-                                    <span class="diary-name">Falador Diary</span>
-                                    <span class="diary-progress">
-                                        <span class="diary-percentage">0%</span>
-                                        <span class="diary-tasks-count">0/0 Elite</span>
-                                    </span>
-                                </div>
-                                <div class="diary-progress-bar-container">
-                                    <div class="diary-progress-bar progress-falador"></div>
-                                </div>
-                            </div>
-                            <div class="diary-content" id="falador-diary"></div>
-                        </div>
-                        <div class="diary-card">
-                            <div class="diary-header" data-diary="fremennik">
-                                <div class="diary-title-row">
-                                    <span class="diary-name">Fremennik Diary</span>
-                                    <span class="diary-progress">
-                                        <span class="diary-percentage">0%</span>
-                                        <span class="diary-tasks-count">0/0 Elite</span>
-                                    </span>
-                                </div>
-                                <div class="diary-progress-bar-container">
-                                    <div class="diary-progress-bar progress-fremennik"></div>
-                                </div>
-                            </div>
-                            <div class="diary-content" id="fremennik-diary"></div>
-                        </div>
-                         <div class="diary-card">
-                            <div class="diary-header" data-diary="karamja">
-                                <div class="diary-title-row">
-                                    <span class="diary-name">Karamja Diary</span>
-                                     <span class="diary-progress">
-                                        <span class="diary-percentage">0%</span>
-                                        <span class="diary-tasks-count">0/0 Elite</span>
-                                    </span>
-                                </div>
-                                <div class="diary-progress-bar-container">
-                                    <div class="diary-progress-bar progress-karamja"></div>
-                                </div>
-                            </div>
-                            <div class="diary-content" id="karamja-diary"></div>
-                        </div>
-                        <div class="diary-card">
-                            <div class="diary-header" data-diary="kandarin">
-                                <div class="diary-title-row">
-                                    <span class="diary-name">Kandarin Diary</span>
-                                     <span class="diary-progress">
-                                        <span class="diary-percentage">0%</span>
-                                        <span class="diary-tasks-count">0/0 Elite</span>
-                                    </span>
-                                </div>
-                                <div class="diary-progress-bar-container">
-                                    <div class="diary-progress-bar progress-kandarin"></div>
-                                </div>
-                            </div>
-                            <div class="diary-content" id="kandarin-diary"></div>
-                        </div>
-                         <div class="diary-card">
-                            <div class="diary-header" data-diary="kourend">
-                                <div class="diary-title-row">
-                                    <span class="diary-name">Kourend & Kebos Diary</span>
-                                     <span class="diary-progress">
-                                        <span class="diary-percentage">0%</span>
-                                        <span class="diary-tasks-count">0/0 Elite</span>
-                                    </span>
-                                </div>
-                                <div class="diary-progress-bar-container">
-                                    <div class="diary-progress-bar progress-kourend"></div>
-                                </div>
-                            </div>
-                            <div class="diary-content" id="kourend-diary"></div>
-                        </div>
-                        <div class="diary-card">
-                            <div class="diary-header" data-diary="lumbridge">
-                                <div class="diary-title-row">
-                                    <span class="diary-name">Lumbridge & Draynor Diary</span>
-                                    <span class="diary-progress">
-                                        <span class="diary-percentage">0%</span>
-                                        <span class="diary-tasks-count">0/0 Elite</span>
-                                    </span>
-                                </div>
-                                <div class="diary-progress-bar-container">
-                                    <div class="diary-progress-bar progress-lumbridge"></div>
-                                </div>
-                            </div>
-                            <div class="diary-content" id="lumbridge-diary"></div>
-                        </div>
-                        <div class="diary-card">
-                            <div class="diary-header" data-diary="morytania">
-                                <div class="diary-title-row">
-                                    <span class="diary-name">Morytania Diary</span>
-                                    <span class="diary-progress">
-                                        <span class="diary-percentage">0%</span>
-                                        <span class="diary-tasks-count">0/0 Elite</span>
-                                    </span>
-                                </div>
-                                <div class="diary-progress-bar-container">
-                                    <div class="diary-progress-bar progress-morytania"></div>
-                                </div>
-                            </div>
-                            <div class="diary-content" id="morytania-diary"></div>
-                        </div>
-                        <div class="diary-card">
-                            <div class="diary-header" data-diary="varrock">
-                                <div class="diary-title-row">
-                                    <span class="diary-name">Varrock Diary</span>
-                                     <span class="diary-progress">
-                                        <span class="diary-percentage">0%</span>
-                                        <span class="diary-tasks-count">0/0 Elite</span>
-                                    </span>
-                                </div>
-                                <div class="diary-progress-bar-container">
-                                    <div class="diary-progress-bar progress-varrock"></div>
-                                </div>
-                            </div>
-                            <div class="diary-content" id="varrock-diary"></div>
-                        </div>
-                        <div class="diary-card">
-                            <div class="diary-header" data-diary="western">
-                                <div class="diary-title-row">
-                                    <span class="diary-name">Western Provinces Diary</span>
-                                     <span class="diary-progress">
-                                        <span class="diary-percentage">0%</span>
-                                        <span class="diary-tasks-count">0/0 Elite</span>
-                                    </span>
-                                </div>
-                                <div class="diary-progress-bar-container">
-                                    <div class="diary-progress-bar progress-western"></div>
-                                </div>
-                            </div>
-                            <div class="diary-content" id="western-diary"></div>
-                        </div>
-                        <div class="diary-card">
-                            <div class="diary-header" data-diary="wilderness">
-                                <div class="diary-title-row">
-                                    <span class="diary-name">Wilderness Diary</span>
-                                    <span class="diary-progress">
-                                        <span class="diary-percentage">0%</span>
-                                        <span class="diary-tasks-count">0/0 Elite</span>
-                                    </span>
-                                </div>
-                                <div class="diary-progress-bar-container">
-                                    <div class="diary-progress-bar progress-wilderness"></div>
-                                </div>
-                            </div>
-                            <div class="diary-content" id="wilderness-diary"></div>
-                        </div>
-                        <!-- END: Diary Cards -->
-                    </div>
+                <!-- Wrapper for the RIGHT column (Skill Summary + Save Button) -->
+                <div class="dashboard-right-column"> <!-- Renamed for clarity -->
 
-                    <!-- !!! SKILL SUMMARY (MOVED HERE) !!! -->
+                    <!-- Skill Requirements Summary -->
                     <div class="summary-card container">
                          <div class="stats-header">
-                             <div>Skill Requirements Summary <span id="custom-rates-indicator" class="summary-title-indicator" style="display: none;">(Custom Rates)</span></div>
+                             <div>Skill Requirements Summary <span id="custom-rates-indicator" class="summary-title-indicator" style="display: none;">(Using Custom Rates)</span></div>
                              <button id="edit-skills-button" class="filter-button">Edit Skills</button>
                          </div>
                          <div class="sort-buttons">
                              <button class="filter-button active" data-sort="name">Sort by Name</button>
-                             <button class="filter-button" data-sort="level">Sort by Level</button>
+                             <button class="filter-button" data-sort="level">Sort by Level Needed</button>
                              <button class="filter-button" data-sort="hours">Sort by Time</button>
                          </div>
                          <div class="summary-content" id="skill-summary">
                              <!-- Skills will be populated by JavaScript -->
                          </div>
                      </div>
-                    <!-- !!! END SKILL SUMMARY !!! -->
+                    <!-- END Skill Requirements Summary -->
 
+                    <!-- Save Button - Still relevant for saving Diary/Misc Goal/Skill changes -->
                     <button class="save-button" id="save-progress">Save All Progress</button>
-                </div> <!-- End Diaries Container (Right Column) -->
+
+                </div> <!-- End Right Column -->
+
             </div> <!-- End Flex Row -->
         </div> <!-- End of #dashboard-view -->
+
+        <!-- !!! NEW Diary View !!! -->
+        <div id="diaries-view" style="display: none;">
+            <h2>Achievement Diaries</h2>
+            <!-- Optional: Add overall diary progress tracker here later -->
+            <!-- <div class="cumulative-tracker container" style="...">...</div> -->
+
+            <div class="diaries-grid">
+                <!-- Diary Cards (like Ardougne, Desert, etc.) -->
+                <!-- will be populated by ui.js -> populateDiaries -->
+                <!-- Example structure that JS will create: -->
+                <!--
+                <div class="diary-card">
+                    <div class="diary-header" data-diary="ardougne">...</div>
+                    <div class="diary-content" id="ardougne-diary">...</div>
+                </div>
+                <div class="diary-card">
+                    <div class="diary-header" data-diary="desert">...</div>
+                    <div class="diary-content" id="desert-diary">...</div>
+                </div>
+                 ... etc ...
+                -->
+            </div>
+        </div> <!-- End of #diaries-view -->
 
         <!-- Milestone Goals View -->
         <div id="goals-view" style="display: none;">
             <h2>Milestone Goals</h2>
             <div id="cumulative-goal-tracker" class="container" style="margin-bottom: 25px; padding: 15px 20px;">
-                <div class="goal-tier-header">
-                    <h3 style="color: var(--text-accent); font-size: 1.1em;">Overall Progress</h3>
-                    <div class="goal-progress-container">
-                        <div id="cumulative-progress-bar" class="goal-progress-bar" style="background-color: var(--accent-gold);"></div> <!-- Changed color -->
-                    </div>
-                    <span id="cumulative-percentage" class="goal-percentage">0%</span>
-                </div>
+                <!-- ... Cumulative goal header ... -->
             </div>
             <div class="goals-grid">
                 <!-- Goal Tiers populated by JS -->
@@ -324,13 +161,7 @@
         <div id="gear-view" style="display: none;">
             <h2>Gear Progression</h2>
             <div id="cumulative-gear-tracker" class="container" style="margin-bottom: 25px; padding: 15px 20px;">
-                <div class="goal-tier-header">
-                    <h3 style="color: var(--text-accent); font-size: 1.1em;">Overall Gear Progress</h3>
-                    <div class="goal-progress-container">
-                        <div id="cumulative-gear-progress-bar" class="goal-progress-bar" style="background-color: var(--accent-green-muted);"></div> <!-- Changed color -->
-                    </div>
-                    <span id="cumulative-gear-percentage" class="goal-percentage">0%</span>
-                </div>
+               <!-- ... Cumulative gear header ... -->
             </div>
             <div class="gear-stages-grid">
                 <!-- Gear stages populated by JS -->
@@ -339,7 +170,7 @@
 
     </div> <!-- End of .dashboard -->
 
-    <!-- Skill Editor Modal -->
+    <!-- Skill Editor Modal (Kept Global at the end) -->
     <div id="skill-editor-modal" class="modal">
         <div class="modal-content">
             <span class="modal-close" onclick="closeSkillEditor()">×</span>
@@ -354,8 +185,8 @@
         </div>
     </div>
 
-    <!-- Add theme toggle script reference *before* app.js if it's separate -->
-    <!-- Or include the logic within app.js -->
+    <!-- Ensure calculations.js is imported if needed globally or within modules -->
+    <!-- <script src="calculations.js"></script> --> <!-- Not needed if using modules -->
     <script type="module" src="app.js"></script>
 </body>
 </html>

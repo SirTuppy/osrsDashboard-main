@@ -392,32 +392,98 @@ export function loadGearProgression() {
 
 // --- Diary Progress ---
 
+// storage.js
+
 /**
  * Saves the current checked state of diary tasks to localStorage.
- * Reads directly from DOM checkboxes. Called by main Save button.
+ * Reads directly from DOM checkboxes for visible tasks and merges with existing saved data.
  */
 export function saveProgressToLocalStorage() {
-    const progress = {};
-    document.querySelectorAll('.task-checkbox:checked').forEach(checkbox => {
-        const diary = checkbox.dataset.diary;
-        const difficulty = checkbox.dataset.difficulty;
-        const index = parseInt(checkbox.dataset.index);
-        if (!progress[diary]) progress[diary] = {};
-        if (!progress[diary][difficulty]) progress[diary][difficulty] = [];
-        progress[diary][difficulty].push(index);
-    });
-    // Sort indices for consistency (optional but nice)
-    for (const diary in progress) {
-        for (const difficulty in progress[diary]) {
-            progress[diary][difficulty].sort((a, b) => a - b);
+    // 1. Load the EXISTING saved progress from localStorage
+    let currentSavedProgress = {};
+    const savedString = localStorage.getItem('diaryProgress');
+    if (savedString) {
+        try {
+            const parsed = JSON.parse(savedString);
+            // Basic validation
+            if (parsed && typeof parsed === 'object') {
+                currentSavedProgress = parsed;
+            }
+        } catch (e) {
+            console.error("Error parsing existing diaryProgress, starting fresh.", e);
+            // Optionally clear bad data: localStorage.removeItem('diaryProgress');
         }
     }
-    localStorage.setItem('diaryProgress', JSON.stringify(progress));
 
-    // Explicitly save misc goals as well, as they save on change but this guarantees it
-    saveMiscellaneousGoals();
+    // 2. Identify currently visible diary/difficulty (if any diary card is open)
+    // We need a reliable way to know which difficulty tab is active in the OPEN diary card.
+    // This might be tricky without adding more state or querying the DOM extensively.
 
-    console.log('Main diary/misc progress saved via button.');
+    // --- SIMPLER APPROACH: Save ALL currently rendered checkboxes ---
+    // This assumes that when you click Save, the tasks for at least the
+    // currently relevant difficulty are present in the DOM. It will overwrite
+    // the state for those specific diary/difficulty combos based on current DOM.
+    // It implicitly keeps the state for difficulties NOT currently rendered.
+    // This might still lose state if you check easy, switch to medium, check medium,
+    // then hit save WITHOUT easy being rendered anymore.
+
+    // --- BETTER APPROACH: Save state based on ALL checkboxes EVER rendered ---
+    // Iterate through ALL known diaries and difficulties from data.js
+    const newProgressToSave = {};
+    const difficulties = ["easy", "medium", "hard", "elite"];
+
+    for (const diaryKey in diaries) {
+        if (!newProgressToSave[diaryKey]) newProgressToSave[diaryKey] = {};
+
+        difficulties.forEach(difficulty => {
+            const tasksForDifficulty = document.querySelectorAll(
+                `.task-checkbox[data-diary="${diaryKey}"][data-difficulty="${difficulty}"]`
+            );
+
+            if (tasksForDifficulty.length > 0) {
+                 // If these tasks ARE rendered, get their current state from DOM
+                 const completedIndices = [];
+                 tasksForDifficulty.forEach((checkbox, index) => { // Use actual index from DOM node if dataset.index unreliable after potential DOM changes
+                      if (checkbox.checked) {
+                           // Use the index stored in the checkbox's dataset
+                           completedIndices.push(parseInt(checkbox.dataset.index));
+                      }
+                 });
+                 completedIndices.sort((a, b) => a - b);
+                 newProgressToSave[diaryKey][difficulty] = completedIndices;
+                 // console.log(`Saving state for ${diaryKey}-${difficulty} from DOM`);
+
+            } else if (currentSavedProgress[diaryKey]?.[difficulty]) {
+                 // If tasks NOT rendered, PRESERVE the previously saved state
+                 newProgressToSave[diaryKey][difficulty] = currentSavedProgress[diaryKey][difficulty];
+                 // console.log(`Preserving saved state for ${diaryKey}-${difficulty}`);
+            } else {
+                 // Tasks not rendered and no previous state - save empty array
+                  newProgressToSave[diaryKey][difficulty] = [];
+            }
+        });
+    }
+
+    // Remove empty difficulty/diary keys for cleaner JSON (optional)
+    for (const diaryKey in newProgressToSave) {
+        for (const difficulty in newProgressToSave[diaryKey]) {
+            if (newProgressToSave[diaryKey][difficulty].length === 0) {
+                delete newProgressToSave[diaryKey][difficulty];
+            }
+        }
+        if (Object.keys(newProgressToSave[diaryKey]).length === 0) {
+            delete newProgressToSave[diaryKey];
+        }
+    }
+
+
+    // 3. Save the potentially merged/updated progress object
+    localStorage.setItem('diaryProgress', JSON.stringify(newProgressToSave));
+
+    // Explicitly save misc goals as well
+    saveMiscellaneousGoals(); // This one saves correctly on its own changes
+
+    console.log('Main diary/misc progress saved via button. New diary state:', newProgressToSave);
 }
 
 /**

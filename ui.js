@@ -7,9 +7,11 @@ import { skillRequirements, miscellaneousGoals, milestoneGoalsData, gearProgress
 // Import calculation functions used for display logic
 import { totalXpForLevel, formatXp, calculateHoursNeeded, parseBoostAmount, calculateCombatLevel } from './calculations.js';
 // Import specific event handlers needed for attaching listeners IN this module
-import { handleDragStart, handleDragOver, handleDragEnd, handleDragLeave, handleDrop, handleMilestoneGoalChange, handleGearItemChange, handleMiscGoalCheck, handleMiscGoalDescChange, handleMiscGoalDescKey, handleMiscGoalRemove, handleDiaryTaskChange } from './events.js';
+import { handleDragStart, handleDragOver, handleDragEnd, handleDragLeave, handleDrop, handleMilestoneGoalChange, handleGearItemChange, handleMiscGoalCheck, handleMiscGoalDescChange, handleMiscGoalDescKey, handleMiscGoalRemove, handleDiaryTaskChange, handleCompleteAllToggle } from './events.js';
 // NOTE: We import handlers that are attached *during UI population*.
 // Handlers attached directly in app.js (like navigation, main save button) don't need to be imported here.
+
+let loadedGlobalDiaryProgress = {};
 
 function formatGP(amount) {
     if (amount <= 0) return "0 gp";
@@ -113,128 +115,273 @@ export function updateOverallStats() {
 }
 
 /**
- * Populates the diary cards and their content in the DOM.
- * Attaches event listeners for diary task checkboxes.
+ * Populates the diaries grid with cards for each diary region.
  */
 export function populateDiaries() {
-    const diariesData = window.diaries || diaries; // Use imported diaries data preferably
+    const diariesGrid = document.querySelector('#diaries-view .diaries-grid'); // Target the new grid
+    if (!diariesGrid) {
+        console.error("Diary grid container '#diaries-view .diaries-grid' not found!");
+        return;
+    }
+    diariesGrid.innerHTML = ''; // Clear previous content
+
+    const diariesData = window.diaries || diaries;
+    const difficulties = ["easy", "medium", "hard", "elite"]; // Define order
 
     for (const [diaryKey, diary] of Object.entries(diariesData)) {
-        const diaryContent = document.getElementById(`${diaryKey}-diary`);
-        const diaryHeader = document.querySelector(`.diary-header[data-diary="${diaryKey}"]`);
-        if (!diaryContent || !diaryHeader) continue;
+        // --- Create the Diary Card Structure ---
+        const diaryCard = document.createElement('div');
+        diaryCard.className = 'diary-card';
 
-        diaryContent.innerHTML = ''; // Clear existing content
-        const difficulty = 'elite'; // Hardcoded for now
-        const tasks = diary.tasks[difficulty] || [];
-        const totalTasks = tasks.length;
+        // --- Create Header (Largely Unchanged, but update progress calculation later) ---
+        const diaryHeader = document.createElement('div');
+        diaryHeader.className = 'diary-header';
+        diaryHeader.dataset.diary = diaryKey;
 
-        // Calculate required skills string for data attribute
-        const diarySkillReqs = new Set();
-        if (diary.requirements) {
-            diary.requirements.forEach(req => {
-                const match = req.match(/^([a-zA-Z\s]+)\s(\d+)$/);
-                if (match) diarySkillReqs.add(match[1].trim());
-            });
-        }
-        const skillReqString = Array.from(diarySkillReqs).join(' ');
-
-        // --- Reset Header Count & Progress Text Visually ---
-        const headerTaskCount = document.querySelector(`.diary-header[data-diary="${diaryKey}"] .diary-tasks-count`);
-        if (headerTaskCount) headerTaskCount.textContent = `0/${totalTasks} Elite`;
-
-        // We can't reliably find the old progress text here after clearing innerHTML,
-        // so we'll just recreate it below.
-
-        // Create task category elements
-        const taskCategory = document.createElement('div');
-        taskCategory.className = 'task-category';
-        const headerElement = document.createElement('h4'); // Renamed variable to avoid conflict
-        headerElement.innerHTML = `Elite Tasks <span class="difficulty-indicator difficulty-${difficulty}">${difficulty}</span>`;
-        taskCategory.appendChild(headerElement);
-        const tasksContainer = document.createElement('div');
-        tasksContainer.className = 'tasks';
-
-        // Create individual task elements
-        tasks.forEach((taskText, index) => {
-            const task = document.createElement('div');
-            task.className = 'task';
-            task.setAttribute('data-requires-skill', skillReqString);
-            task.innerHTML = `
-                <input type="checkbox" class="task-checkbox" id="task-${diaryKey}-${difficulty}-${index}"
-                       data-diary="${diaryKey}" data-difficulty="${difficulty}" data-index="${index}">
-                <label class="task-description" for="task-${diaryKey}-${difficulty}-${index}">${taskText}</label>
-            `;
-            task.querySelector('.task-checkbox').addEventListener('change', handleDiaryTaskChange);
-            tasksContainer.appendChild(task);
+        // Calculate TOTAL tasks across ALL difficulties for the header display
+        let totalTasksAllDifficulties = 0;
+        difficulties.forEach(diff => {
+             totalTasksAllDifficulties += diary.tasks[diff]?.length || 0;
         });
-        taskCategory.appendChild(tasksContainer);
 
-        // Add progress bar and text elements
-        const progressContainer = document.createElement('div');
-        progressContainer.className = `progress-container difficulty-${difficulty}`;
-        progressContainer.innerHTML = `<div class="progress-bar" style="width: 0%;"></div>`;
-        taskCategory.appendChild(progressContainer);
+        diaryHeader.innerHTML = `
+            <div class="diary-title-row">
+                <span class="diary-name">${diary.name}</span>
+                <span class="diary-progress">
+                    <span class="diary-percentage">0%</span>
+                    <span class="diary-tasks-count">0/${totalTasksAllDifficulties} Total</span> <!-- Show total count -->
+                </span>
+            </div>
+            <div class="diary-progress-bar-container">
+                <div class="diary-progress-bar progress-${diaryKey}" style="width: 0%;"></div> <!-- Start at 0% -->
+            </div>
+        `;
 
-        // ***** FIX HERE *****
-        // Create the progressText element before using it
-        const progressText = document.createElement('div');
-        // ********************
+        // --- Create Content Div ---
+        const diaryContent = document.createElement('div');
+        diaryContent.className = 'diary-content';
+        diaryContent.id = `${diaryKey}-diary`;
 
-        progressText.className = 'progress-text';
-        progressText.textContent = `0/${totalTasks} tasks completed`; // Initialize text
-        taskCategory.appendChild(progressText); // Append the newly created element
+        // --- Create Difficulty Tabs ---
+        const difficultyTabs = document.createElement('div');
+        difficultyTabs.className = 'difficulty-tabs';
+        difficulties.forEach((diff, index) => {
+            // Only create tab if tasks exist for this difficulty
+            if (diary.tasks[diff] && diary.tasks[diff].length > 0) {
+                 const button = document.createElement('button');
+                 button.className = 'diff-button filter-button'; // Reuse filter-button style
+                 // Make 'Elite' active by default for now, or maybe 'Easy'?
+                 if (diff === 'elite') button.classList.add('active-diff');
+                 button.dataset.diary = diaryKey;
+                 button.dataset.difficulty = diff;
+                 button.textContent = diff.charAt(0).toUpperCase() + diff.slice(1);
+                 difficultyTabs.appendChild(button);
+            }
+        });
+        diaryContent.appendChild(difficultyTabs);
 
-        diaryContent.appendChild(taskCategory);
+        // --- Create Areas for Dynamic Content ---
+        const tasksArea = document.createElement('div');
+        tasksArea.className = 'tasks-area';
+        diaryContent.appendChild(tasksArea);
 
-        // Add skill requirements section
-        if (diary.requirements && diary.requirements.length > 0) {
-             const reqContainer = document.createElement('div');
-             reqContainer.className = 'skill-requirements';
-             reqContainer.innerHTML = '<h4>Skill Requirements</h4>';
-             diary.requirements.forEach(requirement => {
-                // ... (rest of skill requirement logic is likely fine) ...
-                const match = requirement.match(/^([a-zA-Z\s]+)\s(\d+)$/);
-                if (!match) return;
-                 const skillName = match[1].trim();
-                 const levelRequired = parseInt(match[2]);
-                 const skillData = skillRequirements.find(s => s.skill === skillName);
-                 const currentLevel = skillData ? skillData.current : 1;
-                 const isMet = currentLevel >= levelRequired;
-                 const boost = skillData?.boost;
-                 const boostAmount = parseBoostAmount(boost);
-                 const canBoostMeet = !isMet && boostAmount > 0 && (currentLevel + boostAmount >= levelRequired);
+        // --- ADD BACK Skill Req Area Placeholder ---
+        const skillReqArea = document.createElement('div');
+        skillReqArea.className = 'skill-requirements-area'; // Area to hold the generated list
+        diaryContent.appendChild(skillReqArea);
+        // -----------------------------------------
 
-                 const reqDiv = document.createElement('div');
-                 reqDiv.className = 'skill-requirement';
-                 const skillNameSpan = document.createElement('span');
-                 skillNameSpan.textContent = requirement;
-                  if (boost && boost !== 'N/A') {
-                     skillNameSpan.classList.add('tooltip');
-                     skillNameSpan.innerHTML += `<span class="tooltiptext">Boost: ${boost}</span>`;
-                 }
-                 const skillLevelSpan = document.createElement('span');
-                 skillLevelSpan.className = isMet ? 'skill-met' : 'skill-not-met';
-                 skillLevelSpan.textContent = `${currentLevel}/${levelRequired}`;
-                  if (!isMet && canBoostMeet) {
-                     skillLevelSpan.innerHTML += ` <span style="color: var(--accent-yellow); font-size:0.9em;" title="Boostable">(B)</span>`;
-                 }
-                 reqDiv.appendChild(skillNameSpan);
-                 reqDiv.appendChild(skillLevelSpan);
-                 reqContainer.appendChild(reqDiv);
-             });
-             diaryContent.appendChild(reqContainer);
-        }
-    }
-     console.log("Diaries populated."); // Keep or remove log as desired
+        // --- Append Header and Content to Card, Card to Grid ---
+        diaryCard.appendChild(diaryHeader);
+        diaryCard.appendChild(diaryContent);
+        diariesGrid.appendChild(diaryCard);
+
+        // --- Load Initial Difficulty Content (e.g., Elite) ---
+        loadDiaryDifficultyContent(diaryKey, 'elite'); // Load elite content by default
+
+    } // End loop through diaries
+
+    console.log("Diary cards and tab structure populated.");
+    // Global progress update will happen after applyLoadedDiaryProgress
 }
 
+// ui.js
+
+// --- RE-IMPLEMENT HELPER FUNCTION ---
+/**
+ * Creates the HTML for the consolidated skill requirements section for a specific difficulty.
+ * @param {string} diaryKey
+ * @param {string} difficulty
+ * @returns {HTMLElement | null} - The container div or null if no skill requirements.
+ */
+function createSkillRequirementsSection(diaryKey, difficulty) {
+    const diaryData = diaries[diaryKey];
+    const tasksForDifficulty = diaryData?.tasks?.[difficulty];
+    if (!tasksForDifficulty) return null; // No tasks, no reqs
+
+    // Aggregate unique skill requirements and highest level needed
+    const aggregatedSkillReqs = new Map(); // Map<string, number> -> { "Agility": 70, "Herblore": 55 }
+    const skillReqRegex = /^([a-zA-Z]+)\s+(\d+)$/; // Simple Skill Level regex
+
+    tasksForDifficulty.forEach(task => {
+        task.requires.forEach(reqStr => {
+            const match = reqStr.match(skillReqRegex);
+            if (match) {
+                const skillName = match[1].trim();
+                const level = parseInt(match[2]);
+                // Store the highest level required for this skill in this difficulty
+                if (!aggregatedSkillReqs.has(skillName) || level > aggregatedSkillReqs.get(skillName)) {
+                    aggregatedSkillReqs.set(skillName, level);
+                }
+            }
+            // Ignore Quest/QP/Combat reqs for this specific list
+        });
+    });
+
+    if (aggregatedSkillReqs.size === 0) {
+        return null; // No *skill* requirements found for this difficulty
+    }
+
+    // Build the HTML container
+    const reqContainer = document.createElement('div');
+    reqContainer.className = 'skill-requirements'; // Reuse existing class
+    reqContainer.dataset.difficulty = difficulty;
+    reqContainer.innerHTML = `<h4>Skill Requirements (${difficulty})</h4>`;
+
+    // Sort skills alphabetically for consistent display
+    const sortedSkillNames = Array.from(aggregatedSkillReqs.keys()).sort();
+
+    sortedSkillNames.forEach(skillName => {
+        const levelRequired = aggregatedSkillReqs.get(skillName);
+        const skillData = skillRequirements.find(s => s.skill === skillName); // Find player's skill data
+        const currentLevel = skillData ? skillData.current : 1;
+        const isMet = currentLevel >= levelRequired;
+        const boost = skillData?.boost; // Get boost info from main skill data
+        const boostAmount = parseBoostAmount(boost);
+        const canBoostMeet = !isMet && boostAmount > 0 && (currentLevel + boostAmount >= levelRequired);
+
+        // Create the individual requirement div (same as before)
+        const reqDiv = document.createElement('div');
+        reqDiv.className = 'skill-requirement';
+
+        const skillNameSpan = document.createElement('span');
+        skillNameSpan.textContent = `${skillName} ${levelRequired}`; // Display "Skill Level"
+         if (boost && boost !== 'N/A') {
+            skillNameSpan.classList.add('tooltip');
+            skillNameSpan.innerHTML += `<span class="tooltiptext">Boost: ${boost}</span>`;
+         }
+
+        const skillLevelSpan = document.createElement('span');
+        skillLevelSpan.className = isMet ? 'skill-met' : 'skill-not-met';
+        skillLevelSpan.textContent = `${currentLevel}/${levelRequired}`; // Show Current/Required
+         if (!isMet && canBoostMeet) {
+            skillLevelSpan.innerHTML += ` <span style="color: var(--accent-yellow); font-size:0.9em;" title="Boostable">(B)</span>`;
+         }
+
+        reqDiv.appendChild(skillNameSpan);
+        reqDiv.appendChild(skillLevelSpan);
+        reqContainer.appendChild(reqDiv);
+    });
+
+    return reqContainer;
+}
+
+// --- NEW HELPER FUNCTION ---
+/**
+ * Loads the tasks and requirements for a specific difficulty into the diary card.
+ * @param {string} diaryKey
+ * @param {string} difficulty
+ */
+// ui.js -> loadDiaryDifficultyContent
+export function loadDiaryDifficultyContent(diaryKey, difficulty) {
+    const diaryContent = document.getElementById(`${diaryKey}-diary`);
+    if (!diaryContent) {
+        console.error(`Diary content area not found for ${diaryKey}-diary`);
+        return;
+    }
+
+    const tasksArea = diaryContent.querySelector('.tasks-area');
+    const skillReqArea = diaryContent.querySelector('.skill-requirements-area'); // Area for bottom skill list
+
+    // Ensure both areas exist before proceeding
+    if (!tasksArea || !skillReqArea) {
+         console.error(`Tasks or Skill Req area missing within ${diaryKey}-diary`);
+         return;
+    }
+
+    // Clear previous content from both areas
+    tasksArea.innerHTML = '';
+    skillReqArea.innerHTML = '';
+
+    // Create and append new task content (which includes inline reqs)
+    const taskSection = createTaskSection(diaryKey, difficulty);
+    if (taskSection) { // Check if task section was successfully created
+         tasksArea.appendChild(taskSection);
+    } else {
+         console.warn(`Failed to create task section for ${diaryKey} - ${difficulty}`);
+    }
+
+
+    // Create and append the separate Skill Requirement Section at the bottom
+    const skillSection = createSkillRequirementsSection(diaryKey, difficulty);
+    if (skillSection) {
+        skillReqArea.appendChild(skillSection);
+    }
+
+    // Apply saved check states specifically to the checkboxes just added
+    applyLoadedChecksToDifficulty(diaryKey, difficulty);
+
+    // Update the UI elements for the newly loaded content
+    updateTaskProgressDisplay(diaryKey, difficulty);      // Update progress bar/text for this difficulty
+    updateCompleteAllCheckboxState(diaryKey, difficulty); // Set initial state of the master checkbox
+    updateAllDiarySkillReqs();                           // Update highlighting in the bottom skill req section
+}
+
+// --- NEW HELPER FUNCTION ---
+/**
+ * Applies loaded checkbox states specifically to a newly loaded difficulty section.
+ * Reads from the module-scoped loadedGlobalDiaryProgress variable.
+ * @param {string} diaryKey
+ * @param {string} difficulty
+ */
+function applyLoadedChecksToDifficulty(diaryKey, difficulty) {
+    // --- Read from the stored global progress data ---
+    const difficultyIndices = loadedGlobalDiaryProgress?.[diaryKey]?.[difficulty];
+    // -------------------------------------------------
+
+    const taskSection = document.querySelector(`#${diaryKey}-diary .task-category[data-difficulty="${difficulty}"]`);
+    if (!taskSection) {
+         // console.warn(`Task section not found for applying checks: ${diaryKey}-${difficulty}`);
+         return; // Section not rendered yet
+    }
+
+    // --- Reset checks in this specific section FIRST ---
+    taskSection.querySelectorAll('.task-checkbox').forEach(checkbox => {
+         checkbox.checked = false;
+         checkbox.closest('.task')?.classList.remove('task-completed');
+    });
+    // ---------------------------------------------------
+
+
+    if (Array.isArray(difficultyIndices)) {
+        difficultyIndices.forEach(index => {
+            const checkbox = taskSection.querySelector(`.task-checkbox[data-index="${index}"]`);
+            if (checkbox) {
+                checkbox.checked = true;
+                checkbox.closest('.task')?.classList.add('task-completed');
+            } else {
+                  // console.warn(`Checkbox with index ${index} not found in ${diaryKey}-${difficulty}`);
+            }
+        });
+    }
+    // else { console.log(`No saved indices found for ${diaryKey}-${difficulty}`); }
+}
 
 /**
  * Updates the displayed skill levels in the diary requirements sections.
  */
 export function updateAllDiarySkillReqs() {
-    document.querySelectorAll('.skill-requirement').forEach(reqDiv => {
+   document.querySelectorAll('.skill-requirement').forEach(reqDiv => {
         // ... (Existing logic to find spans, parse req, get skill data) ...
         const skillNameSpan = reqDiv.querySelector('span:first-child');
         const skillLevelSpan = reqDiv.querySelector('span:last-child');
@@ -267,124 +414,122 @@ export function updateAllDiarySkillReqs() {
               boostIndicator?.remove();
          }
          skillLevelSpan.className = isMet ? 'skill-met' : 'skill-not-met';
-    });
+    }); 
 }
 
-/**
- * Applies the loaded diary progress data to the checkboxes in the DOM.
- * Should be called AFTER populateDiaries has run.
- * @param {object} loadedProgressData - The diary progress object loaded from storage.
- */
+// --- MODIFY applyLoadedDiaryProgress ---
+// This function might not be needed anymore if checks are applied dynamically
+// by loadDiaryDifficultyContent. OR, it could loop through all diaries/difficulties
+// and ensure the initial default view (e.g., Elite) is correctly checked.
+// For now, let's simplify it to just update overall progress after population.
 export function applyLoadedDiaryProgress(loadedProgressData) {
-    console.log("Applying loaded diary progress to DOM...");
-    // Reset all checkboxes first for a clean slate
-    document.querySelectorAll('.task-checkbox').forEach(checkbox => {
-        checkbox.checked = false;
-        checkbox.closest('.task')?.classList.remove('task-completed'); // Also reset visual style
+    console.log("Storing loaded diary progress and triggering initial UI updates...");
+    // Store the loaded data globally within this module
+    loadedGlobalDiaryProgress = loadedProgressData || {};
+
+    // The actual checks are applied when loadDiaryDifficultyContent calls applyLoadedChecksToDifficulty.
+    // We just need to ensure the header/global stats reflect the overall SAVED state initially.
+    Object.keys(diaries).forEach(diaryKey => {
+        updateDiaryHeaderProgress(diaryKey); // Update header based on the initially loaded data
     });
-
-    if (!loadedProgressData || typeof loadedProgressData !== 'object') {
-        console.log("No valid diary progress data to apply.");
-        return;
-    }
-
-    // Iterate through the loaded data and check the corresponding boxes
-    for (const [diaryKey, difficulties] of Object.entries(loadedProgressData)) {
-        if (!difficulties || typeof difficulties !== 'object') continue; // Skip invalid difficulty data
-
-        for (const [difficulty, indices] of Object.entries(difficulties)) {
-            if (!Array.isArray(indices)) continue; // Skip invalid index array
-
-            indices.forEach(index => {
-                const checkbox = document.querySelector(`.task-checkbox[data-diary="${diaryKey}"][data-difficulty="${difficulty}"][data-index="${index}"]`);
-                if (checkbox) {
-                    checkbox.checked = true;
-                    checkbox.closest('.task')?.classList.add('task-completed'); // Apply visual style
-                } else {
-                    // This might happen if diary structure changes, safe to log
-                    // console.warn(`Checkbox not found for ${diaryKey}-${difficulty}-${index}`);
-                }
-            });
-        }
-    }
-    console.log("Finished applying loaded diary progress.");
-
-    // --- Crucial: Update progress displays AFTER applying loaded state ---
-    Object.keys(diaries).forEach(diaryKey => { // Use the imported diaries data keys
-        // Assuming only elite for now, adjust if other difficulties are added
-        updateTaskProgressDisplay(diaryKey, 'elite');
-        updateDiaryHeaderProgress(diaryKey);
-    });
-    updateGlobalProgress(); // Update overall header stats
-    updateDashboardSummaryProgress(); // Update the summary section too
+    updateGlobalProgress(); // Update global stats based on initially loaded data
+    updateDashboardSummaryProgress(); // Update summary based on initially loaded data
+    console.log("Initial diary progress UI updated based on loaded state.");
 }
 
 /**
- * Updates the progress bar and text for a specific diary difficulty.
- * @param {string} diaryKey - The key for the diary (e.g., 'ardougne').
- * @param {string} difficulty - The difficulty tier (e.g., 'elite').
+ * Updates the progress bar and text for a specific task category (difficulty).
+ * @param {string} diaryKey
+ * @param {string} difficulty
  */
 export function updateTaskProgressDisplay(diaryKey, difficulty) {
-    // Find relevant DOM elements for this specific diary/difficulty
     const diaryContent = document.getElementById(`${diaryKey}-diary`);
     if (!diaryContent) return;
-    // Assuming only one task-category per diary content for Elite
-    const categoryContainer = diaryContent.querySelector(`.task-category`);
-    if (!categoryContainer) return;
-    const progressBar = categoryContainer.querySelector(`.progress-bar`);
-    const progressText = categoryContainer.querySelector(`.progress-text`);
-    const tasks = diaryContent.querySelectorAll(`.task-checkbox[data-diary="${diaryKey}"][data-difficulty="${difficulty}"]`);
+    // Find the SPECIFIC task category for this difficulty
+    const categoryContainer = diaryContent.querySelector(`.task-category[data-difficulty="${difficulty}"]`);
+    if (!categoryContainer) {
+         // console.warn(`Task category not found for ${diaryKey} - ${difficulty}`);
+         return; // Category might not be loaded yet
+    }
+    const progressBar = categoryContainer.querySelector('.progress-bar');
+    const progressText = categoryContainer.querySelector('.progress-text');
+    // Find tasks ONLY within this category
+    const tasks = categoryContainer.querySelectorAll(`.task-checkbox[data-diary="${diaryKey}"][data-difficulty="${difficulty}"]`);
 
-    // Calculate progress
     const completed = Array.from(tasks).filter(task => task.checked).length;
     const total = tasks.length;
     const percentage = total > 0 ? Math.floor((completed / total) * 100) : 0;
 
-    // Update DOM
     if (progressBar) progressBar.style.width = `${percentage}%`;
     if (progressText) progressText.textContent = `${completed}/${total} tasks completed`;
 }
 
 /**
- * Updates the header progress (percentage, count, bar) for a specific diary.
+ * Updates the main header progress for a specific diary card based on ALL difficulties.
  * @param {string} diaryKey - The key for the diary.
  */
 export function updateDiaryHeaderProgress(diaryKey) {
-    // Calculate progress based on DOM state
-    const allTasks = document.querySelectorAll(`.task-checkbox[data-diary="${diaryKey}"][data-difficulty="elite"]`);
-    const completedTasks = Array.from(allTasks).filter(task => task.checked).length;
-    const totalTasks = allTasks.length;
-    const percentage = totalTasks > 0 ? Math.floor((completedTasks / totalTasks) * 100) : 0;
-
-    // Find header elements
     const diaryHeader = document.querySelector(`.diary-header[data-diary="${diaryKey}"]`);
     if (!diaryHeader) return;
-    const percentageSpan = diaryHeader.querySelector('.diary-percentage');
+
+    // --- Calculate OVERALL progress for this diary from SAVED state ---
+    let totalTasksAcrossDifficulties = 0;
+    let completedTasksAcrossDifficulties = 0;
+    const difficulties = ["easy", "medium", "hard", "elite"];
+    const diaryData = diaries[diaryKey]; // From data.js for total counts
+    const savedProgress = loadedGlobalDiaryProgress; // Use the loaded data
+
+    if (diaryData && diaryData.tasks) {
+        difficulties.forEach(diff => {
+            totalTasksAcrossDifficulties += diaryData.tasks[diff]?.length || 0;
+            completedTasksAcrossDifficulties += savedProgress?.[diaryKey]?.[diff]?.length || 0; // Count saved checks
+        });
+    }
+
+    const overallPercentage = totalTasksAcrossDifficulties > 0 ? Math.floor((completedTasksAcrossDifficulties / totalTasksAcrossDifficulties) * 100) : 0;
+
+    // --- Update Header DOM (same as before) ---
+    // ... (update percentageSpan, countSpan, progressBar) ...
+     const percentageSpan = diaryHeader.querySelector('.diary-percentage');
     const countSpan = diaryHeader.querySelector('.diary-tasks-count');
     const progressBar = diaryHeader.querySelector('.diary-progress-bar');
-
-    // Update DOM
-    if (percentageSpan) percentageSpan.textContent = `${percentage}%`;
-    if (countSpan) countSpan.textContent = `${completedTasks}/${totalTasks} Elite`;
-    if (progressBar) progressBar.style.width = `${percentage}%`;
+     if (percentageSpan) percentageSpan.textContent = `${overallPercentage}%`;
+    if (countSpan) countSpan.textContent = `${completedTasksAcrossDifficulties}/${totalTasksAcrossDifficulties} Total`;
+    if (progressBar) progressBar.style.width = `${overallPercentage}%`;
 }
 
 
 /**
- * Updates the global elite diary progress display in the main header stats.
+ * Updates the global OVERALL diary progress display based on SAVED data.
  */
 export function updateGlobalProgress() {
-    // Calculate progress based on DOM state
-    const allEliteTasks = document.querySelectorAll('.task-checkbox[data-difficulty="elite"]');
-    const completedEliteTasks = Array.from(allEliteTasks).filter(task => task.checked).length;
-    const totalEliteTasks = allEliteTasks.length;
-    const percentage = totalEliteTasks > 0 ? Math.floor((completedEliteTasks / totalEliteTasks) * 100) : 0;
+    let grandTotalTasks = 0;
+    let grandTotalCompleted = 0;
+    const difficulties = ["easy", "medium", "hard", "elite"];
+    const savedProgress = loadedGlobalDiaryProgress; // Use loaded data
 
-    // Update DOM elements
-    document.getElementById('elite-completed').textContent = completedEliteTasks;
-    document.getElementById('elite-total').textContent = totalEliteTasks;
-    document.getElementById('overall-progress').textContent = percentage;
+    for (const diaryKey in diaries) {
+        const diaryData = diaries[diaryKey];
+        if (diaryData && diaryData.tasks) {
+            difficulties.forEach(diff => {
+                grandTotalTasks += diaryData.tasks[diff]?.length || 0;
+                grandTotalCompleted += savedProgress?.[diaryKey]?.[diff]?.length || 0; // Count saved checks
+            });
+        }
+    }
+
+    const overallPercentage = grandTotalTasks > 0 ? Math.floor((grandTotalCompleted / grandTotalTasks) * 100) : 0;
+
+    // --- Update Overall Stats Header (same as before) ---
+    // ... (update eliteCompletedSpan, eliteTotalSpan, overallProgressSpan) ...
+     const eliteCompletedSpan = document.getElementById('elite-completed');
+    const eliteTotalSpan = document.getElementById('elite-total');
+    const overallProgressSpan = document.getElementById('overall-progress');
+     if (eliteCompletedSpan) eliteCompletedSpan.textContent = grandTotalCompleted;
+    if (eliteTotalSpan) eliteTotalSpan.textContent = grandTotalTasks;
+    if (overallProgressSpan) overallProgressSpan.textContent = overallPercentage;
 }
+
 
 /**
  * Updates the combat level display in the header.
@@ -723,11 +868,50 @@ export function updateCumulativeGearProgress() {
 }
 
 /**
+ * Updates the checked and indeterminate state of a "Complete All" checkbox.
+ * @param {string} diaryKey
+ * @param {string} difficulty
+ */
+export function updateCompleteAllCheckboxState(diaryKey, difficulty) {
+    const masterCheckbox = document.getElementById(`complete-all-${diaryKey}-${difficulty}`);
+    if (!masterCheckbox) return; // Might not be loaded yet or exist
+
+    const taskCategory = masterCheckbox.closest('.task-category');
+    if (!taskCategory) return;
+
+    const taskCheckboxes = taskCategory.querySelectorAll(`.task-checkbox[data-diary="${diaryKey}"][data-difficulty="${difficulty}"]`);
+    const totalTasks = taskCheckboxes.length;
+    if (totalTasks === 0) {
+        masterCheckbox.checked = false;
+        masterCheckbox.indeterminate = false;
+        masterCheckbox.disabled = true; // Disable if no tasks
+        return;
+    }
+
+    const completedTasks = Array.from(taskCheckboxes).filter(cb => cb.checked).length;
+
+    masterCheckbox.disabled = false; // Ensure enabled if tasks exist
+
+    if (completedTasks === 0) {
+        masterCheckbox.checked = false;
+        masterCheckbox.indeterminate = false;
+    } else if (completedTasks === totalTasks) {
+        masterCheckbox.checked = true;
+        masterCheckbox.indeterminate = false;
+    } else {
+        // Some, but not all, are checked
+        masterCheckbox.checked = false; // Should not be fully checked
+        masterCheckbox.indeterminate = true; // Set indeterminate state
+    }
+}
+
+
+/**
  * Shows the specified view and hides others. Updates tab buttons.
  * @param {string} viewIdToShow - The ID of the view container div to show.
  */
 export function showView(viewIdToShow) {
-    const views = document.querySelectorAll('#dashboard-view, #goals-view, #gear-view');
+    const views = document.querySelectorAll('#dashboard-view, #goals-view, #gear-view, #diaries-view');
     const viewButtons = document.querySelectorAll('.view-navigation .filter-button');
     const skillModalSaveButton = document.getElementById('save-skills');
     const skillModalResetButton = document.getElementById('reset-skills');
@@ -788,6 +972,106 @@ export function openSkillEditor() {
 }
 
 /**
+ * Creates the HTML for a list of tasks for a specific difficulty,
+ * including inline requirements and a "Toggle All" checkbox.
+ * @param {string} diaryKey
+ * @param {string} difficulty
+ * @returns {HTMLElement} - The container div (task-category) with the tasks and controls.
+ */
+function createTaskSection(diaryKey, difficulty) {
+    const diaryData = diaries[diaryKey];
+    // --- Access the new task object array ---
+    const tasks = diaryData?.tasks?.[difficulty];
+    if (!tasks || tasks.length === 0) {
+        const emptyDiv = document.createElement('div');
+        emptyDiv.className = `task-category difficulty-${difficulty}`;
+        emptyDiv.dataset.difficulty = difficulty;
+        emptyDiv.innerHTML = `<h4>${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Tasks</h4><p style="color: var(--text-secondary); font-style: italic;">(No tasks defined for this difficulty yet)</p>`;
+        return emptyDiv;
+    }
+    // -------------------------------------
+
+    const totalTasks = tasks.length;
+
+    // --- Create container elements ---
+    const taskCategory = document.createElement('div');
+    taskCategory.className = `task-category difficulty-${difficulty}`; // Add difficulty class
+    taskCategory.dataset.difficulty = difficulty; // Store difficulty
+
+    // Container for H4 and Toggle All
+    const headerContainer = document.createElement('div');
+    headerContainer.className = 'difficulty-header-controls';
+
+    const headerElement = document.createElement('h4');
+    headerElement.innerHTML = `${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Tasks <span class="difficulty-indicator difficulty-${difficulty}">${difficulty}</span>`;
+
+    // --- Create "Complete All" Checkbox ---
+    const completeAllDiv = document.createElement('div');
+    completeAllDiv.className = 'complete-all-control';
+    const masterCheckboxId = `complete-all-${diaryKey}-${difficulty}`;
+    completeAllDiv.innerHTML = `
+        <input type="checkbox" class="complete-all-checkbox" id="${masterCheckboxId}" data-diary="${diaryKey}" data-difficulty="${difficulty}">
+        <label for="${masterCheckboxId}">Toggle All</label>
+    `;
+    // Attach event listener (handler function imported from events.js)
+    completeAllDiv.querySelector('.complete-all-checkbox').addEventListener('change', handleCompleteAllToggle);
+    // ------------------------------------
+
+    headerContainer.appendChild(headerElement);
+    headerContainer.appendChild(completeAllDiv); // Add checkbox next to header
+    taskCategory.appendChild(headerContainer); // Add the combined header controls
+
+    const tasksContainer = document.createElement('div');
+    tasksContainer.className = 'tasks';
+
+    // --- Loop through TASK OBJECTS ---
+    tasks.forEach((taskData, index) => {
+        const task = document.createElement('div');
+        task.className = 'task';
+
+        // --- Generate Requirements String & Skill Data ---
+        const requirementsString = taskData.requires.join(', '); // Simple comma-separated list
+        const skillReqHighlightData = taskData.requires
+            .map(req => req.match(/^([a-zA-Z\s]+)\s\d+$/)?.[1]?.trim()) // Extract skill names
+            .filter(Boolean) // Remove null/undefined
+            .join(' '); // Space-separated list for data attribute
+        task.dataset.requiresSkill = skillReqHighlightData; // For highlighting
+        // ----------------------------------------------
+
+        const checkboxId = `task-${diaryKey}-${difficulty}-${index}`;
+        task.innerHTML = `
+            <input type="checkbox" class="task-checkbox" id="${checkboxId}"
+                   data-diary="${diaryKey}" data-difficulty="${difficulty}" data-index="${index}">
+            <label class="task-description" for="${checkboxId}">
+                ${taskData.description}
+                ${taskData.requires.length > 0 ? // Only show reqs span if array isn't empty
+                    `<span class="task-requirements">(${requirementsString})</span>` : ''}
+            </label>
+        `;
+        // ---------------------------------------------
+
+        task.querySelector('.task-checkbox').addEventListener('change', handleDiaryTaskChange);
+        tasksContainer.appendChild(task);
+    });
+    // --- End Task Loop ---
+
+    taskCategory.appendChild(tasksContainer);
+
+    // Add progress elements (unchanged)
+    const progressContainer = document.createElement('div');
+    progressContainer.className = `progress-container difficulty-${difficulty}`; // Style per difficulty
+    progressContainer.innerHTML = `<div class="progress-bar" style="width: 0%;"></div>`;
+    taskCategory.appendChild(progressContainer);
+
+    const progressText = document.createElement('div');
+    progressText.className = 'progress-text';
+    progressText.textContent = `0/${totalTasks} tasks completed`; // Initial state
+    taskCategory.appendChild(progressText);
+
+    return taskCategory;
+}
+
+/**
  * Hides the skill editor modal.
  */
 export function closeSkillEditor() {
@@ -802,8 +1086,14 @@ export function updateDashboardSummaryProgress() {
     const milestoneContainer = document.getElementById('summary-milestones');
     const gearContainer = document.getElementById('summary-gear');
     const diaryContainer = document.getElementById('summary-diaries');
-    if (!milestoneContainer || !gearContainer || !diaryContainer) return;
 
+    // Exit if any container is missing
+    if (!milestoneContainer || !gearContainer || !diaryContainer) {
+        console.error("One or more dashboard summary containers not found!");
+        return;
+    }
+
+    // Helper function to create a summary row (keep this definition)
     const createSummaryRow = (label, percentage, color) => {
         const row = document.createElement('div');
         row.className = 'summary-progress-row';
@@ -817,7 +1107,7 @@ export function updateDashboardSummaryProgress() {
         return row;
     };
 
-    // Update Milestones
+    // --- Update Milestones (Reads from milestoneGoalsData - NO CHANGE NEEDED) ---
     milestoneContainer.innerHTML = '';
     for (const tierKey in milestoneGoalsData) {
         const tier = milestoneGoalsData[tierKey];
@@ -827,7 +1117,7 @@ export function updateDashboardSummaryProgress() {
         milestoneContainer.appendChild(createSummaryRow(tier.name, percentage, tier.color));
     }
 
-    // Update Gear
+    // --- Update Gear (Reads from gearProgressionData - NO CHANGE NEEDED) ---
     gearContainer.innerHTML = '';
     for (const stageKey in gearProgressionData) {
         const stage = gearProgressionData[stageKey];
@@ -837,25 +1127,42 @@ export function updateDashboardSummaryProgress() {
         gearContainer.appendChild(createSummaryRow(stage.name, percentage, stage.color));
     }
 
-    // Update Diaries
+    // --- Update Diaries (Reads from loadedGlobalDiaryProgress - CORRECTED LOGIC) ---
     diaryContainer.innerHTML = '';
-    const diaryLevels = {
-        Easy: { color: '#ADD8E6', percentage: 0 }, // Hardcoded for now
-        Medium: { color: '#90EE90', percentage: 0 }, // Hardcoded for now
-        Hard: { color: '#FFB6C1', percentage: 0 }, // Hardcoded for now
-        Elite: { color: '#FFD700', percentage: 0 }   // Calculate Elite
+    const diaryLevels = { // Define colors for summary bars
+        Easy: { color: '#4CAF50', percentage: 0 },
+        Medium: { color: '#FFC107', percentage: 0 },
+        Hard: { color: '#FF5722', percentage: 0 },
+        Elite: { color: '#9C27B0', percentage: 0 }
     };
-    const allEliteTasks = document.querySelectorAll('.task-checkbox[data-difficulty="elite"]');
-    const completedEliteTasks = Array.from(allEliteTasks).filter(task => task.checked).length;
-    const totalEliteTasks = allEliteTasks.length;
-    diaryLevels.Elite.percentage = (totalEliteTasks > 0) ? Math.floor((completedEliteTasks / totalEliteTasks) * 100) : 0;
 
+    // Use the module-scoped variable holding the loaded diary progress
+    const savedProgress = loadedGlobalDiaryProgress;
+
+    // Calculate percentage for each difficulty level ACROSS ALL diaries using SAVED data
+    for (const diffLevel in diaryLevels) { // e.g., "Easy", "Medium"
+        let totalTasksForDiff = 0;
+        let completedTasksForDiff = 0;
+        const difficultyLower = diffLevel.toLowerCase(); // e.g., "easy", "medium"
+
+        for (const diaryKey in diaries) { // Loop through all diaries defined in data.js
+             // Get total task count for this difficulty from data.js structure
+            totalTasksForDiff += diaries[diaryKey]?.tasks?.[difficultyLower]?.length || 0;
+             // Get completed count for this difficulty from the SAVED progress object
+            completedTasksForDiff += savedProgress?.[diaryKey]?.[difficultyLower]?.length || 0;
+        }
+        // Calculate and store the percentage
+        diaryLevels[diffLevel].percentage = totalTasksForDiff > 0 ? Math.floor((completedTasksForDiff / totalTasksForDiff) * 100) : 0;
+    }
+
+    // Add summary rows for each difficulty
     for (const levelName in diaryLevels) {
         const levelData = diaryLevels[levelName];
         diaryContainer.appendChild(createSummaryRow(levelName, levelData.percentage, levelData.color));
     }
+    // --- End Diary Update ---
 
-}
+} // End of updateDashboardSummaryProgress
 
 
 // --- Global listeners for Skill Editor Rate Inputs (Can stay here as they relate to UI created here) ---
