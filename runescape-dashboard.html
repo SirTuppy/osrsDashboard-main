@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OSRS Progress Dashboard</title>
+    <title>OSRS Progress Tracker</title>
     <!-- Link Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,23 +15,26 @@
     <div class="dashboard">
         <!-- Page Header -->
         <header class="page-header container">
+            <!-- Section for User Info, Title, Actions, Nav -->
             <div class="stats-header">
                 <div class="stats-header-content">
-                    <!-- Top Row: Left Info, Title, Right Actions -->
+                    <!-- Top Row: User Info, Title, Actions -->
                     <div class="header-top-row">
                         <div class="header-left-info">
                             <div class="username" id="player-name" contenteditable="true" title="Click to edit username, press Enter to fetch">Enter Username</div>
-                            <div id="combat-level-display">Combat Level: --</div>
+                            <div class="player-levels">
+                                <span id="combat-level-display">Combat: --</span>
+                                <span id="total-level-display">Total: --</span>
+                            </div>
                         </div>
                         <div class="header-title-row">
-                            <h1>OSRS Progress Dashboard</h1>
+                            <h1>OSRS Progress Tracker</h1>
                         </div>
                         <div class="header-actions">
                            <button id="fetch-hiscores-button" class="filter-button" title="Fetch current stats from OSRS Hiscores">Fetch Stats</button>
                            <input type="file" id="import-file-input" accept=".json" style="display: none;">
                            <button id="import-data-button" class="filter-button" title="Import saved dashboard data (.json)">Import</button>
                            <button id="export-data-button" class="filter-button" title="Export current dashboard data (.json)">Export</button>
-                           <!-- Dark Mode Toggle -->
                            <button id="theme-toggle-button" class="filter-button">🌙</button>
                        </div>
                     </div>
@@ -40,84 +43,82 @@
                     <nav class="view-navigation header-view-navigation">
                         <button class="filter-button active-view" data-view="dashboard-view">Dashboard</button>
                         <button class="filter-button" data-view="diaries-view">Diaries</button>
+                        <button class="filter-button" data-view="quests-view">Quests</button>
                         <button class="filter-button" data-view="goals-view">Milestone Goals</button>
                         <button class="filter-button" data-view="gear-view">Gear Progression</button>
                         <button class="filter-button" data-view="combat-tasks-view">Combat Tasks</button>
-                        <button class="filter-button" data-view="quests-view">Quests</button> <!-- <<< ADDED QUESTS BUTTON -->
                     </nav>
                 </div> <!-- End of stats-header-content -->
-            </div>
+            </div> <!-- End of .stats-header -->
 
-            <div class="overall-stats">
-                <!-- Overall stats populated by JS -->
-                 <div>Diary Tasks: <span id="elite-completed">0</span>/<span id="elite-total">0</span></div>
-                 <div>Overall Diary: <span id="overall-progress">0</span>%</div>
-                 <div>Levels Needed: <span id="total-levels-needed">0</span></div>
-                 <div>XP Needed: <span id="total-xp-needed">0</span></div>
-                 <div class="time-remaining">Est. Time: <span id="total-time">0</span> hrs</div>
+            <!-- Dedicated Summary Section -->
+            <div class="dashboard-summary-overview">
+                <div>Quests: <span id="summary-quests-completed">0</span>/<span id="summary-quests-total">0</span> (<span id="summary-quests-percentage">0</span>%)</div>
+                <div>Goals: <span id="summary-goals-completed">0</span>/<span id="summary-goals-total">0</span> (<span id="summary-goals-percentage">0</span>%)</div>
+                <div>Gear: <span id="summary-gear-completed">0</span>/<span id="summary-gear-total">0</span> (<span id="summary-gear-percentage">0</span>%)</div>
+                <div>Diaries: <span id="summary-diaries-completed">0</span>/<span id="summary-diaries-total">0</span> (<span id="summary-diaries-percentage">0</span>%)</div>
+                <div>Combat Tasks: <span id="summary-ca-completed">0</span>/<span id="summary-ca-total">0</span> (<span id="summary-ca-points">0</span> pts)</div>
+                <div>Levels Needed: <span id="summary-levels-needed">0</span></div>
+                <div>XP Needed: <span id="summary-xp-needed">0</span></div>
+                <div class="time-remaining">Est. Time: <span id="summary-time-needed">0</span> hrs</div>
             </div>
+            <!-- END Summary Section -->
+
         </header> <!-- End of .page-header -->
 
         <!-- Main Content Area -->
         <main>
-            <!-- Dashboard View (Default Visible) -->
+            <!-- Dashboard View -->
             <div id="dashboard-view">
-                <div class="flex-row">
-                    <!-- Wrapper for the LEFT column (Summary + Misc Goals) -->
-                    <div class="dashboard-left-column">
-                        <!-- Dashboard Summary Section -->
-                        <section id="dashboard-summary-section" class="container">
-                            <h4>Milestone Progression</h4>
-                            <div class="summary-category" id="summary-milestones"></div>
-                            <h4>Gear Progression</h4>
-                            <div class="summary-category" id="summary-gear"></div>
-                            <h4>Achievement Diary Progression</h4>
-                            <div class="summary-category" id="summary-diaries"></div>
-                            <h4>Combat Achievement Progression</h4>
-                            <div class="summary-category" id="summary-combat-tasks"></div>
-                        </section>
-                        <!-- END Dashboard Summary Section -->
-
-                        <!-- Miscellaneous Goals -->
-                        <section class="miscellaneous-goals-container container">
-                             <div class="stats-header">
-                                 <div>Miscellaneous Goals</div>
-                                 <button id="add-goal-button" class="filter-button">Add Goal</button>
-                             </div>
+                 <div class="flex-row">
+                     <div class="dashboard-left-column">
+                         <!-- Dashboard Summary Section (Progress Bars) -->
+                         <section id="dashboard-summary-section" class="container">
+                             <h4>Diary Progression</h4>
+                             <div class="summary-category" id="summary-diaries"></div>
+                             <h4>Quest Progression</h4>
+                             <div class="summary-category" id="summary-quests"></div>
+                             <h4>Milestone Progression</h4>
+                             <div class="summary-category" id="summary-milestones"></div>
+                             <h4>Gear Progression</h4>
+                             <div class="summary-category" id="summary-gear"></div>
+                             <h4>Combat Achievement Progression</h4>
+                             <div class="summary-category" id="summary-combat-tasks"></div>
+                         </section>
+                         <!-- Miscellaneous Goals -->
+                         <section class="miscellaneous-goals-container container">
+                             <div class="stats-header"><div>Miscellaneous Goals</div><button id="add-goal-button" class="filter-button">Add Goal</button></div>
                              <div class="miscellaneous-goals-content" id="miscellaneous-goals"></div>
                          </section>
-                        <!-- END Miscellaneous Goals -->
-                    </div> <!-- END Wrapper for the left column -->
-
-                    <!-- Wrapper for the RIGHT column (Skill Summary) -->
-                    <div class="dashboard-right-column">
-                        <!-- Skill Requirements Summary -->
-                        <section class="summary-card container">
-                             <div class="stats-header">
-                                 <div>Skill Requirements Summary <span id="custom-rates-indicator" class="summary-title-indicator" style="display: none;">(Using Custom Rates)</span></div>
-                                 <button id="edit-skills-button" class="filter-button">Edit Skills</button>
-                             </div>
+                     </div>
+                     <!-- Skill Summary -->
+                     <div class="dashboard-right-column">
+                         <section class="summary-card container">
+                             <div class="stats-header"><div>Skill Requirements Summary <span id="custom-rates-indicator" class="summary-title-indicator" style="display: none;">(Custom Rates)</span></div><button id="edit-skills-button" class="filter-button">Edit Skills</button></div>
                              <div class="sort-buttons">
-                                 <button class="filter-button" data-sort="name">Sort by Name</button>
-                                 <button class="filter-button active" data-sort="level">Sort by Level Needed</button>
-                                 <button class="filter-button" data-sort="hours">Sort by Time</button>
+                                 <button class="filter-button" data-sort="name">Name</button>
+                                 <button class="filter-button active" data-sort="level">Level</button>
+                                 <button class="filter-button" data-sort="hours">Time</button>
                              </div>
                              <div class="summary-content" id="skill-summary"></div>
                          </section>
-                        <!-- END Skill Requirements Summary -->
-                    </div> <!-- End Right Column -->
-                </div> <!-- End Flex Row -->
-            </div> <!-- End of #dashboard-view -->
+                     </div>
+                 </div>
+             </div>
 
-            <!-- Achievement Diaries View (Hidden by default) -->
+            <!-- Achievement Diaries View -->
             <div id="diaries-view" class="view-hidden">
-                <h2>Achievement Diaries</h2>
                 <section class="diaries-grid"></section>
-            </div> <!-- End of #diaries-view -->
+            </div>
 
-            <!-- Milestone Goals View (Hidden by default) -->
+            <!-- Quests View -->
+            <div id="quests-view" class="view-hidden">
+                 <section class="quests-grid container"></section>
+            </div>
+
+            <!-- Milestone Goals View -->
             <div id="goals-view" class="view-hidden">
-                <h2>Milestone Goals</h2>
+                <!-- Cumulative Goal Tracker -->
                 <section id="cumulative-goal-tracker" class="container cumulative-tracker">
                     <div class="goal-tier-header">
                         <h3 style="color: var(--text-accent);">Overall Milestone Progress</h3>
@@ -127,12 +128,13 @@
                         <span id="cumulative-percentage" class="goal-percentage">0%</span>
                     </div>
                 </section>
+                <!-- Goal Tiers Grid -->
                 <section class="goals-grid"></section>
-            </div> <!-- End of #goals-view -->
+            </div>
 
-            <!-- Gear Progression View (Hidden by default) -->
+            <!-- Gear Progression View -->
             <div id="gear-view" class="view-hidden">
-                <h2>Gear Progression</h2>
+                <!-- Cumulative Gear Tracker -->
                 <section id="cumulative-gear-tracker" class="container cumulative-tracker">
                    <div class="gear-stage-header">
                         <h3 style="color: var(--text-accent);">Overall Gear Cost</h3>
@@ -142,12 +144,13 @@
                         <span id="cumulative-gear-percentage" class="goal-percentage">0%</span>
                    </div>
                 </section>
+                <!-- Gear Stages Grid -->
                 <section class="gear-stages-grid"></section>
-            </div> <!-- End of #gear-view -->
+            </div>
 
-            <!-- Combat Achievements View (Hidden by default) -->
+            <!-- Combat Achievements View -->
             <div id="combat-tasks-view" class="view-hidden">
-                <h2>Combat Achievements</h2>
+                <!-- Cumulative CA Tracker -->
                 <section id="cumulative-ca-tracker" class="container cumulative-tracker">
                     <div class="goal-tier-header">
                         <h3 style="color: var(--text-accent);">Overall Progress</h3>
@@ -159,6 +162,7 @@
                          <span id="cumulative-ca-percentage" class="goal-percentage">0%</span>
                     </div>
                 </section>
+                <!-- CA Filters -->
                 <section class="ca-filters container">
                     <h4>Filters</h4>
                     <div class="filter-row">
@@ -198,50 +202,26 @@
                          <input type="text" id="ca-boss-search" placeholder="Filter by boss/task name...">
                      </div>
                 </section>
+                <!-- CA Grid -->
                 <section class="combat-tasks-grid"></section>
-            </div> <!-- End of #combat-tasks-view -->
-
-            <!-- Quest Milestones View (Hidden by default) <<< ADDED QUESTS VIEW -->
-            <div id="quests-view" class="view-hidden">
-                <!-- Content will be populated by ui.js -> populateQuestsView -->
-                <!-- Example Structure added by JS:
-                <h2>Quest Milestones</h2>
-                <section class="quests-grid container">
-                    <section class="quest-section">
-                        <h3>Notable Unlocks</h3>
-                        <div class="tasks quest-list">
-                            <div class="task quest-milestone">
-                                <input type="checkbox" class="quest-checkbox" id="quest-Druidic-Ritual" data-quest-name="Druidic Ritual">
-                                <label class="task-description" for="quest-Druidic-Ritual">Druidic Ritual</label>
-                                <span class="goal-info">(Herblore)</span>
-                            </div>
-                            ...
-                        </div>
-                    </section>
-                    <section class="quest-section">
-                         <h3>Major Milestones</h3>
-                         <div class="tasks quest-list">...</div>
-                    </section>
-                </section>
-                -->
-            </div> <!-- End of #quests-view -->
+            </div>
 
         </main> <!-- End of Main Content Area -->
 
     </div> <!-- End of .dashboard -->
 
-    <!-- Skill Editor Modal (Global) -->
-    <div id="skill-editor-modal" class="modal">
-        <div class="modal-content container">
-            <span class="modal-close" onclick="closeSkillEditor()" title="Close Editor">×</span>
-            <h3>Edit Skill Levels & XP Rates</h3>
-            <div class="skill-editor" id="skill-editor-container"></div>
-            <div class="modal-actions">
-                <button class="filter-button" id="reset-skills">Reset to Default</button>
-                <button class="save-button" id="save-skills">Save Changes</button>
+        <!-- Skill Editor Modal -->
+        <div id="skill-editor-modal" class="modal">
+            <div class="modal-content container">
+                <span class="modal-close" title="Close Editor">×</span>
+                <h3>Edit Skill Levels & XP Rates</h3>
+                <div class="skill-editor" id="skill-editor-container"></div>
+                <div class="modal-actions">
+                    <button class="filter-button" id="reset-skills">Reset to Default</button>
+                    <button class="save-button" id="save-skills">Save Changes</button>
+                </div>
             </div>
         </div>
-    </div>
 
     <!-- Load JavaScript Module -->
     <script type="module" src="app.js"></script>

@@ -20,7 +20,9 @@ import {
     updateCumulativeGearProgress, updateDashboardSummaryProgress, populateCombatTasks,
     updateCumulativeCombatProgress, updateGearStageCost,
     updateAllDiarySkillReqs,
-    populateQuestsView // <-- ADDED Quest View Population
+    populateQuestsView, // <-- ADDED Quest View Population
+    updateQuestSummary,
+    updateTotalLevelDisplay
 } from './ui.js';
 
 // --- Event Handler Imports ---
@@ -201,16 +203,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     populateMilestoneGoals();
     populateGearProgression();
     populateCombatTasks();
-    populateQuestsView(); // <-- POPULATE NEW QUEST VIEW
+    populateQuestsView();
     console.log("Base UI Populated.");
 
     // --- 4. Update UI Displays Based on Final State ---
-    updateCombatLevelDisplay();
-    updateOverallStats();
-    updateCumulativeGoalProgress();
-    updateCumulativeGearProgress();
-    updateCumulativeCombatProgress();
-    updateDashboardSummaryProgress();
+    updateCombatLevelDisplay(); // Initial update (might be '--')
+    updateTotalLevelDisplay('--'); // Set initial placeholder for total level
+    updateOverallStats(); // Updates skills/time needed AND diary summary
+    updateCumulativeGoalProgress(); // Updates goal bar AND summary
+    updateCumulativeGearProgress(); // Updates gear bar AND summary
+    updateCumulativeCombatProgress(); // Updates CA bar AND summary
+    updateQuestSummary(); // <-- ADDED: Update quest stats in summary overview
+    updateDashboardSummaryProgress(); // Updates main dashboard summary bars (incl. quests)
     const initialSort = 'level';
     document.querySelectorAll('.sort-buttons .filter-button').forEach(btn => btn.classList.remove('active'));
     document.querySelector(`.sort-buttons .filter-button[data-sort="${initialSort}"]`)?.classList.add('active');
@@ -222,7 +226,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupViewNavigation(); // Includes setting initial view
     setupSkillEditor();
     setupImportExport();
-    setupHiscoresFetching();
+    setupHiscoresFetching(); // This might trigger another UI update if fetch is successful
     setupSortAndSkillClickListeners();
     setupAddGoalButton();
     setupCAFilters();

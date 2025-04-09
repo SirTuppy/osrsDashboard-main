@@ -128,7 +128,7 @@ body.dark-mode a { color: var(--dm-text-link); }
 body.dark-mode a:hover { color: var(--dm-text-link-hover); }
 
 /* --- Layout Containers --- */
-.dashboard { display: flex; flex-direction: column; gap: 30px; }
+.dashboard { display: flex; flex-direction: column; gap: 0; } /* Reduced gap, header will have margin */
 .container {
     background-color: rgba(210, 180, 140, 0.85);
     border: 2px solid var(--border-dark);
@@ -147,8 +147,13 @@ body.dark-mode .container {
 .flex-row { display: flex; gap: 30px; flex-wrap: wrap; }
 .flex-column { display: flex; flex-direction: column; gap: 30px; }
 
+/* --- Page Header --- */
+.page-header.container {
+    padding-bottom: 0; /* Remove bottom padding since summary overview is inside */
+    margin-bottom: 30px; /* Add margin below the entire header */
+}
+
 /* --- Player Header --- */
-/* Re-integrate original detailed styles with theme variables */
 .player-info { padding: 0; margin-bottom: 0; }
 .stats-header {
     padding: 15px 20px 10px 20px;
@@ -166,21 +171,63 @@ body.dark-mode .stats-header {
     box-shadow: inset 0 2px 5px rgba(0,0,0,0.2);
 }
 .stats-header-content { display: flex; flex-direction: column; gap: 15px; }
-.header-top-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
-.header-left-info { display: flex; flex-direction: column; align-items: flex-start; flex-shrink: 0; }
+.header-top-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto; /* Auto for left, flexible for title, Auto for right */
+    align-items: center; /* MODIFIED: Vertically center items in the row */
+    gap: 20px;
+    padding-bottom: 10px; /* Space below the top row */
+}
+.header-left-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start; /* Align username left */
+    flex-shrink: 0;
+}
 .header-left-info .username {
-    font-family: var(--font-heading); font-size: 2em; font-weight: 700; line-height: 1.1; margin-bottom: 2px;
+    font-family: var(--font-heading); font-size: 2em; font-weight: 700; line-height: 1.1; margin-bottom: 5px; /* Increased margin */
     color: var(--text-primary); text-shadow: 1px 1px 2px rgba(255,255,255,0.2); /* Keep subtle shadow */
     transition: color var(--transition-speed) var(--transition-func);
 }
 body.dark-mode .header-left-info .username { color: var(--dm-text-primary); text-shadow: 1px 1px 2px rgba(0,0,0,0.3); }
-.header-left-info #combat-level-display {
-    font-size: 1.1em; font-weight: 600; color: var(--accent-gold-dark); margin-bottom: 0; font-family: var(--font-body);
-    transition: color var(--transition-speed) var(--transition-func);
-}
-body.dark-mode .header-left-info #combat-level-display { color: var(--dm-accent-gold); }
 
-.header-title-row { text-align: center; flex-grow: 1; padding-top: 8px; }
+/* Style the player levels wrapper */
+.player-levels {
+    display: flex; /* Use flex */
+    flex-direction: column; /* MODIFIED: Stack levels vertically */
+    align-items: flex-start; /* MODIFIED: Align text to the left */
+    gap: 2px; /* MODIFIED: Vertical gap between levels */
+    font-size: 0.95em; /* Adjust size */
+    color: var(--text-secondary); /* Use secondary text color */
+    font-weight: 500;
+}
+body.dark-mode .player-levels {
+    color: var(--dm-text-secondary);
+}
+
+/* Style individual level spans */
+#combat-level-display,
+#total-level-display {
+    font-size: 1em; /* Adjusted size */
+    font-weight: 600;
+    color: var(--accent-gold-dark); /* Use accent color */
+    font-family: var(--font-body); /* Match other body text */
+    line-height: 1.3; /* Adjust line height for stacking */
+}
+body.dark-mode #combat-level-display,
+body.dark-mode #total-level-display {
+    color: var(--dm-accent-gold);
+}
+
+.header-title-row {
+    text-align: center;
+    align-self: center; /* MODIFIED: Ensure vertical centering within its grid area */
+}
+.header-title-row h1 {
+    font-size: 1.9em; /* Slightly larger potentially */
+    line-height: 1.1;
+    margin-bottom: 0;
+}
 .header-actions { display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
 .header-actions .filter-button { /* Uses button styles */ padding: 6px 12px; font-size: 0.9em; }
 
@@ -234,30 +281,93 @@ body.dark-mode .username[contenteditable="true"]:focus {
     background-color: rgba(255, 255, 255, 0.08); border-color: var(--dm-border-medium);
 }
 
-/* Overall Stats Bar */
-.overall-stats { /* Original styles restored with theme vars */
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px 20px;
-    padding: 15px 20px; background-color: var(--bg-tan-light); border: none;
-    border-top: 1px solid var(--border-medium); border-radius: 0 0 5px 5px;
-    box-shadow: inset 0 -2px 5px rgba(0,0,0,0.08);
+/* --- Dashboard Summary Overview Section --- */
+.dashboard-summary-overview {
+    display: grid;
+    /* Create a responsive grid, fitting as many items per row as possible */
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px 20px; /* Row gap, Column gap */
+    padding: 15px 20px;
+    background-color: var(--bg-tan-light); /* Match old overall stats bg */
+    border: none; /* Remove border if it was inherited */
+    border-top: 1px solid var(--border-medium); /* Separator from nav */
+    border-radius: 0 0 5px 5px; /* Round bottom corners */
+    box-shadow: inset 0 -2px 5px rgba(0,0,0,0.08); /* Subtle inner shadow */
+    /* margin-bottom: 30px; */ /* Removed margin, let header container handle spacing */
     transition: background-color var(--transition-speed) var(--transition-func),
                 border-color var(--transition-speed) var(--transition-func),
                 box-shadow var(--transition-speed) var(--transition-func);
 }
-body.dark-mode .overall-stats {
-    background-color: var(--dm-bg-dark); border-top-color: var(--dm-border-medium);
+
+body.dark-mode .dashboard-summary-overview {
+    background-color: var(--dm-bg-dark);
+    border-top-color: var(--dm-border-medium);
     box-shadow: inset 0 -2px 5px rgba(0,0,0,0.15);
 }
-.overall-stats div { font-size: 1em; color: var(--text-primary); transition: color var(--transition-speed) var(--transition-func); }
-body.dark-mode .overall-stats div { color: var(--dm-text-primary); }
-.overall-stats span { font-weight: 600; color: var(--accent-gold-dark); transition: color var(--transition-speed) var(--transition-func); }
-body.dark-mode .overall-stats span { color: var(--dm-accent-gold); }
+
+/* Style individual stat items within the overview */
+.dashboard-summary-overview div {
+    font-size: 0.95em; /* Slightly smaller font */
+    color: var(--text-primary);
+    padding: 5px 0; /* Add a little vertical padding */
+    text-align: center; /* Center text within each grid cell */
+    transition: color var(--transition-speed) var(--transition-func);
+    white-space: nowrap; /* Prevent ugly wrapping within a single stat */
+}
+
+body.dark-mode .dashboard-summary-overview div {
+    color: var(--dm-text-primary);
+}
+
+/* Style the actual value spans */
+.dashboard-summary-overview span {
+    font-weight: 600;
+    color: var(--accent-gold-dark); /* Use gold accent for values */
+    margin-left: 4px; /* Small space after label */
+    transition: color var(--transition-speed) var(--transition-func);
+}
+/* Specific span styling for percentage/points if needed */
+#summary-quests-percentage,
+#summary-goals-percentage,
+#summary-gear-percentage,
+#summary-diaries-percentage,
+#summary-ca-points {
+    color: var(--text-secondary); /* Use secondary color for percentages/points */
+    font-weight: 500;
+    font-size: 0.9em;
+}
+
+
+body.dark-mode .dashboard-summary-overview span {
+    color: var(--dm-accent-gold);
+}
+body.dark-mode #summary-quests-percentage,
+body.dark-mode #summary-goals-percentage,
+body.dark-mode #summary-gear-percentage,
+body.dark-mode #summary-diaries-percentage,
+body.dark-mode #summary-ca-points {
+    color: var(--dm-text-secondary);
+}
+
+/* Style the time remaining specifically if needed */
+.dashboard-summary-overview .time-remaining {
+    /* font-style: italic; */ /* Optional styling */
+}
+.dashboard-summary-overview .time-remaining span {
+    /* Specific styling for time value */
+}
+
+/* --- Main Content Area --- */
+main {
+     margin-top: 0; /* Adjust if needed based on header spacing */
+}
 
 /* --- Dashboard View Layout --- */
+#dashboard-view .flex-row { gap: 30px; } /* Ensure gap is set for main content rows */
 #dashboard-view .dashboard-left-column { flex: 1; min-width: 300px; gap: 30px; display: flex; flex-direction: column;}
 #dashboard-view .dashboard-right-column { flex: 2; min-width: 450px; gap: 30px; display: flex; flex-direction: column;}
 
-/* Dashboard Summary Section */
+/* Dashboard Summary Section (Left Column) */
 #dashboard-summary-section h4 { /* Original styles restored with theme vars */
     margin-top: 15px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid var(--border-medium);
     font-size: 1.1em; color: var(--text-secondary); font-family: var(--font-heading);
@@ -268,7 +378,8 @@ body.dark-mode #dashboard-summary-section h4 { color: var(--dm-text-secondary); 
 .summary-category { padding: 5px 0; }
 .summary-progress-row { display: flex; align-items: center; margin-bottom: 8px; gap: 10px; }
 .summary-label { /* Original styles restored with theme vars */
-    width: 80px; font-size: 0.95em; flex-shrink: 0; color: var(--text-primary); overflow: hidden;
+    width: 100px; /* Adjusted width */
+    font-size: 0.95em; flex-shrink: 0; color: var(--text-primary); overflow: hidden;
     white-space: nowrap; text-overflow: ellipsis; transition: color var(--transition-speed) var(--transition-func);
 }
 body.dark-mode .summary-label { color: var(--dm-text-primary); }
@@ -286,6 +397,20 @@ body.dark-mode .summary-bar-container {
     transition: color var(--transition-speed) var(--transition-func);
 }
 body.dark-mode .summary-percentage { color: var(--dm-text-primary); }
+
+/* Assign colors to summary bars (example colors - adjust as needed) */
+#dashboard-summary-section #summary-diaries .summary-bar { background-color: var(--accent-blue-muted); }
+#dashboard-summary-section #summary-quests .summary-bar { background-color: var(--accent-purple-muted); }
+#dashboard-summary-section #summary-milestones .summary-bar { background-color: var(--accent-gold); }
+#dashboard-summary-section #summary-gear .summary-bar { background-color: var(--accent-green-muted); }
+#dashboard-summary-section #summary-combat-tasks .summary-bar { background-color: var(--accent-grey-muted); }
+
+body.dark-mode #dashboard-summary-section #summary-diaries .summary-bar { background-color: var(--dm-accent-blue-muted); }
+body.dark-mode #dashboard-summary-section #summary-quests .summary-bar { background-color: var(--dm-accent-purple-muted); }
+body.dark-mode #dashboard-summary-section #summary-milestones .summary-bar { background-color: var(--dm-accent-gold); }
+body.dark-mode #dashboard-summary-section #summary-gear .summary-bar { background-color: var(--dm-accent-green-muted); }
+body.dark-mode #dashboard-summary-section #summary-combat-tasks .summary-bar { background-color: var(--dm-accent-grey-muted); }
+
 
 /* Skill Summary Card */
 /* Uses .container styles */
@@ -586,6 +711,11 @@ body.dark-mode .skill-requirement:hover { background-color: rgba(0,0,0, 0.2); }
 body.dark-mode .skill-met { color: var(--dm-accent-green-muted); }
 body.dark-mode .skill-not-met { color: var(--dm-accent-red-deep); }
 
+/* --- Quests View --- */
+#quests-view .quests-grid {
+    /* Add styling for quest grid if needed */
+    padding: 10px 0;
+}
 
 /* --- Miscellaneous Goals --- */
 /* Inherit header styles from .summary-card .stats-header */
@@ -641,10 +771,12 @@ body.dark-mode .goal-tier-header, body.dark-mode .gear-stage-header { border-bot
     margin: 0; flex-shrink: 0; color: var(--text-primary); font-size: 1.3em; font-family: var(--font-heading);
 }
 body.dark-mode .goal-tier-header h3, body.dark-mode .gear-stage-header h3 { color: var(--dm-text-primary); }
-#cumulative-goal-tracker .goal-tier-header h3, #cumulative-gear-tracker .goal-tier-header h3 { /* Original styles restored with theme vars */
+#cumulative-goal-tracker .goal-tier-header h3, #cumulative-gear-tracker .gear-stage-header h3 { /* Adjusted selector for gear */
     color: var(--text-accent); font-size: 1.4em;
 }
-body.dark-mode #cumulative-goal-tracker .goal-tier-header h3, body.dark-mode #cumulative-gear-tracker .goal-tier-header h3 { color: var(--dm-text-accent); }
+body.dark-mode #cumulative-goal-tracker .goal-tier-header h3, body.dark-mode #cumulative-gear-tracker .gear-stage-header h3 { /* Adjusted selector for gear */
+    color: var(--dm-text-accent);
+}
 .goal-progress-container { /* Original styles restored with theme vars */
     flex-grow: 1; height: 12px; background-color: var(--bg-brown-deep); border-radius: 3px; overflow: hidden;
     border: 1px solid var(--border-dark); box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
@@ -704,6 +836,120 @@ body.dark-mode .stage-cost { color: var(--dm-accent-gold); }
 body.dark-mode .gear-style-icon { filter: brightness(1.1); }
 .gear-item.task-completed .gear-style-icon { opacity: 0.5; filter: grayscale(80%) opacity(0.5); }
 body.dark-mode .gear-item.task-completed .gear-style-icon { opacity: 0.6; filter: grayscale(60%) opacity(0.6); }
+
+/* --- Combat Achievements View --- */
+#cumulative-ca-tracker .goal-tier-header h3 { /* Specific styling for CA cumulative tracker */
+    color: var(--text-accent);
+    font-size: 1.4em;
+}
+body.dark-mode #cumulative-ca-tracker .goal-tier-header h3 {
+    color: var(--dm-text-accent);
+}
+#cumulative-ca-progress-bar { background-color: var(--accent-grey-muted); }
+body.dark-mode #cumulative-ca-progress-bar { background-color: var(--dm-accent-grey-muted); }
+
+/* Style for the overall points/tier display in CA header */
+.ca-points-display, .ca-tier-display {
+    font-size: 1em;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-left: auto; /* Push to the right */
+    padding-left: 20px;
+    transition: color var(--transition-speed) var(--transition-func);
+}
+.ca-points-display span, .ca-tier-display span {
+    color: var(--accent-gold-dark); /* Or theme variable */
+    transition: color var(--transition-speed) var(--transition-func);
+}
+
+/* Dark mode for points/tier display */
+body.dark-mode .ca-points-display,
+body.dark-mode .ca-tier-display {
+    color: var(--dm-text-primary);
+}
+ body.dark-mode .ca-points-display span,
+ body.dark-mode .ca-tier-display span {
+    color: var(--dm-accent-gold);
+}
+
+/* CA Filters */
+.ca-filters h4 {
+    margin-bottom: 15px;
+    /* Inherits base h4 styles */
+}
+.filter-row {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 10px;
+    flex-wrap: wrap; /* Allow wrapping if too many buttons */
+}
+.filter-row label {
+    font-weight: 600;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    transition: color var(--transition-speed) var(--transition-func);
+}
+body.dark-mode .filter-row label {
+    color: var(--dm-text-secondary);
+}
+.filter-options {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.filter-row input[type="text"] {
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border-medium);
+    background-color: var(--bg-parchment); /* Match theme */
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    flex-grow: 1; /* Allow search to take space */
+    min-width: 150px;
+    transition: background-color var(--transition-speed) var(--transition-func), border-color var(--transition-speed) var(--transition-func), color var(--transition-speed) var(--transition-func);
+}
+ body.dark-mode .filter-row input[type="text"] {
+    border-color: var(--dm-border-medium);
+    background-color: var(--dm-bg-dark); /* Match theme */
+    color: var(--dm-text-primary);
+}
+/* Filter button styling inherited from general .filter-button */
+/* Ensure active state is distinct */
+.filter-options .filter-button.active {
+     /* Uses existing .active style - maybe make it slightly different if needed */
+     /* e.g., outline: 2px solid var(--accent-gold); */
+}
+
+/* Grid layout for CA tiers */
+.combat-tasks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 30px;
+}
+
+/* Style for individual CA tasks (can reuse .task if desired) */
+.ca-task-list .task {
+    /* Uses existing .task styles: flex, align-items, gap */
+    padding: 6px 5px;
+    margin-bottom: 4px;
+}
+
+/* Optional: Specific styling for CA task components */
+.ca-task-points, .ca-task-wiki {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    margin-left: auto; /* Push right */
+    padding-left: 10px;
+    flex-shrink: 0;
+    transition: color var(--transition-speed) var(--transition-func);
+}
+ .ca-task-wiki a { /* Inherits link styles */ }
+ .ca-task-points { font-weight: 600; }
+
+ body.dark-mode .ca-task-points, body.dark-mode .ca-task-wiki {
+     color: var(--dm-text-secondary);
+ }
 
 /* --- Buttons --- */
 /* Base button styles restored */
@@ -786,104 +1032,6 @@ body.dark-mode .skill-editor-item input { background-color: var(--dm-bg-darkest)
 body.dark-mode .skill-editor-item label.rate-label { color: var(--dm-text-secondary); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 25px; }
 
-/* style.css */
-
-/* Grid layout for CA tiers */
-.combat-tasks-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-    gap: 30px;
-}
-
-/* Style for the overall points/tier display */
-.ca-points-display, .ca-tier-display {
-    font-size: 1em;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-left: auto; /* Push to the right */
-    padding-left: 20px;
-}
-.ca-points-display span, .ca-tier-display span {
-    color: var(--accent-gold-dark); /* Or theme variable */
-}
-
-/* Dark mode for points/tier display */
-body.dark-mode .ca-points-display,
-body.dark-mode .ca-tier-display {
-    color: var(--dm-text-primary);
-}
- body.dark-mode .ca-points-display span,
- body.dark-mode .ca-tier-display span {
-    color: var(--dm-accent-gold);
-}
-
-/* Style for individual CA tasks (can reuse .task if desired) */
-.ca-task-list .task {
-    /* Uses existing .task styles: flex, align-items, gap */
-    padding: 6px 5px;
-    margin-bottom: 4px;
-}
-
-/* Optional: Specific styling for CA task components */
-.ca-task-points, .ca-task-wiki {
-    font-size: 0.85em;
-    color: var(--text-secondary);
-    margin-left: auto; /* Push right */
-    padding-left: 10px;
-    flex-shrink: 0;
-}
- .ca-task-wiki a { /* Inherits link styles */ }
- .ca-task-points { font-weight: 600; }
-
- body.dark-mode .ca-task-points, body.dark-mode .ca-task-wiki {
-     color: var(--dm-text-secondary);
- }
-
- .ca-filters h4 {
-    margin-bottom: 15px;
-    /* Inherits base h4 styles */
-}
-.filter-row {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    margin-bottom: 10px;
-    flex-wrap: wrap; /* Allow wrapping if too many buttons */
-}
-.filter-row label {
-    font-weight: 600;
-    color: var(--text-secondary);
-    flex-shrink: 0;
-}
-body.dark-mode .filter-row label {
-    color: var(--dm-text-secondary);
-}
-.filter-options {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-.filter-row input[type="text"] {
-    padding: 6px 10px;
-    border-radius: 4px;
-    border: 1px solid var(--border-medium);
-    background-color: var(--bg-parchment); /* Match theme */
-    color: var(--text-primary);
-    font-family: var(--font-body);
-    flex-grow: 1; /* Allow search to take space */
-    min-width: 150px;
-}
- body.dark-mode .filter-row input[type="text"] {
-    border-color: var(--dm-border-medium);
-    background-color: var(--dm-bg-dark); /* Match theme */
-    color: var(--dm-text-primary);
-}
-/* Filter button styling inherited from general .filter-button */
-/* Ensure active state is distinct */
-.filter-options .filter-button.active {
-     /* Uses existing .active style - maybe make it slightly different if needed */
-     /* e.g., outline: 2px solid var(--accent-gold); */
-}
 
 /* --- Tooltips --- */
 /* Original styles restored with theme vars */
@@ -895,3 +1043,7 @@ body.dark-mode .filter-row label {
 }
 body.dark-mode .tooltip .tooltiptext { background-color: var(--dm-bg-light); color: var(--dm-text-primary); }
 .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+
+
+/* --- Utility --- */
+.view-hidden { display: none; }

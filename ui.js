@@ -218,15 +218,46 @@ export function populateSkillSummary(sortBy = 'level') { /* ... (implementation 
     skillSummaryElement.querySelectorAll('.editable-level').forEach(el => el.addEventListener('click', openSkillEditor));
 }
 
-export function updateOverallStats() { /* ... (implementation from previous response) ... */
-    let totalLevelsNeeded = 0, totalXpNeeded = 0, totalHoursNeeded = 0;
-    skillRequirements.forEach(skill => { if (skill.current < skill.required && skill.required > 1) { totalLevelsNeeded += skill.levels; totalXpNeeded += skill.xpNeeded; totalHoursNeeded += calculateHoursNeeded(skill.xpNeeded, skill.xpPerHour); } });
-    const levelsNeededEl = document.getElementById('total-levels-needed');
-    const xpNeededEl = document.getElementById('total-xp-needed');
-    const timeEl = document.getElementById('total-time');
-    if (levelsNeededEl) levelsNeededEl.textContent = totalLevelsNeeded;
-    if (xpNeededEl) xpNeededEl.textContent = formatXp(totalXpNeeded);
-    if (timeEl) timeEl.textContent = totalHoursNeeded.toFixed(1);
+// ui.js
+
+/**
+ * Updates the overall skill statistics (Levels/XP/Time Needed)
+ * displayed in the summary overview section.
+ * Also calls updateGlobalProgress to update diary stats in the same section.
+ */
+export function updateOverallStats() {
+    let totalLevelsNeeded = 0;
+    let totalXpNeeded = 0;
+    let totalHoursNeeded = 0;
+
+    // Calculate totals based on current skill requirements data
+    skillRequirements.forEach(skill => {
+        if (skill.current < skill.required && skill.required > 1) {
+            totalLevelsNeeded += skill.levels;
+            totalXpNeeded += skill.xpNeeded;
+            totalHoursNeeded += calculateHoursNeeded(skill.xpNeeded, skill.xpPerHour);
+        }
+    });
+
+    // Update OLD Overall Stats Header Spans (Optional)
+    const levelsNeededElOld = document.getElementById('total-levels-needed');
+    const xpNeededElOld = document.getElementById('total-xp-needed');
+    const timeElOld = document.getElementById('total-time');
+    if (levelsNeededElOld) levelsNeededElOld.textContent = totalLevelsNeeded;
+    if (xpNeededElOld) xpNeededElOld.textContent = formatXp(totalXpNeeded);
+    if (timeElOld) timeElOld.textContent = totalHoursNeeded.toFixed(1);
+
+
+    // --- NEW: Update Dashboard Summary Overview Spans ---
+    const summaryLevelsNeededEl = document.getElementById('summary-levels-needed');
+    const summaryXpNeededEl = document.getElementById('summary-xp-needed');
+    const summaryTimeEl = document.getElementById('summary-time-needed');
+    if (summaryLevelsNeededEl) summaryLevelsNeededEl.textContent = totalLevelsNeeded;
+    if (summaryXpNeededEl) summaryXpNeededEl.textContent = formatXp(totalXpNeeded);
+    if (summaryTimeEl) summaryTimeEl.textContent = totalHoursNeeded.toFixed(1);
+    // --- END NEW ---
+
+    // Update global diary progress (which also updates its part of the summary overview)
     updateGlobalProgress();
 }
 
@@ -269,6 +300,25 @@ export function loadDiaryDifficultyContent(diaryKey, difficulty) { /* ... (imple
     updateAllDiarySkillReqs();
 }
 
+// ui.js
+
+/**
+ * Updates the total level display in the header.
+ * @param {number | string} totalLevel - The player's total level.
+ */
+export function updateTotalLevelDisplay(totalLevel) {
+    const totalLevelElement = document.getElementById('total-level-display');
+    if (totalLevelElement) {
+        // Use '??' or '--' if the level isn't valid
+        const displayValue = (typeof totalLevel === 'number' && totalLevel > 0) || (typeof totalLevel === 'string' && totalLevel !== '--' && totalLevel !== '??')
+            ? totalLevel
+            : '--';
+        totalLevelElement.textContent = `Total: ${displayValue}`;
+    } else {
+        console.warn("Total level display element '#total-level-display' not found.");
+    }
+}
+
 export function updateAllDiarySkillReqs() { /* ... (implementation from previous response, verified correct) ... */
     document.querySelectorAll('.skill-requirement').forEach(reqDiv => {
         const skillNameSpan = reqDiv.querySelector('span:first-child'); const skillLevelSpan = reqDiv.querySelector('span:last-child'); if (!skillNameSpan || !skillLevelSpan) return;
@@ -301,12 +351,46 @@ export function updateDiaryHeaderProgress(diaryKey) { /* ... (implementation fro
     if (percentageSpan) percentageSpan.textContent = `${overallPercentage}%`; if (countSpan) countSpan.textContent = `${completedTasks}/${totalTasks} Total`; if (progressBar) progressBar.style.width = `${overallPercentage}%`;
 }
 
-export function updateGlobalProgress() { /* ... (implementation from previous response, verified correct) ... */
-    let grandTotal = 0, grandCompleted = 0; const difficulties = ["easy", "medium", "hard", "elite"]; const currentDiaryState = diaryCompletionState;
-    for (const diaryKey in diaries) { const diaryData = diaries[diaryKey]; if (diaryData?.tasks) { difficulties.forEach(diff => { grandTotal += diaryData.tasks[diff]?.length || 0; grandCompleted += currentDiaryState?.[diaryKey]?.[diff]?.length || 0; }); } }
-    const overallPercentage = grandTotal > 0 ? Math.floor((grandCompleted / grandTotal) * 100) : 0;
-    const completedSpan = document.getElementById('elite-completed'); const totalSpan = document.getElementById('elite-total'); const progressSpan = document.getElementById('overall-progress');
-    if (completedSpan) completedSpan.textContent = grandCompleted; if (totalSpan) totalSpan.textContent = grandTotal; if (progressSpan) progressSpan.textContent = overallPercentage;
+// ui.js
+
+/**
+ * Updates the global OVERALL diary progress display in the header AND the summary overview section.
+ * Reads from the central diaryCompletionState.
+ */
+export function updateGlobalProgress() {
+    let grandTotalTasks = 0;
+    let grandTotalCompleted = 0;
+    const difficulties = ["easy", "medium", "hard", "elite"];
+    const currentDiaryState = diaryCompletionState; // Use the imported state variable
+
+    for (const diaryKey in diaries) {
+        const diaryData = diaries[diaryKey];
+        if (diaryData && diaryData.tasks) {
+            difficulties.forEach(diff => {
+                grandTotalTasks += diaryData.tasks[diff]?.length || 0;
+                grandTotalCompleted += currentDiaryState?.[diaryKey]?.[diff]?.length || 0;
+            });
+        }
+    }
+
+    const overallPercentage = grandTotalTasks > 0 ? Math.floor((grandTotalCompleted / grandTotalTasks) * 100) : 0;
+
+    // Update OLD Overall Stats Header Spans (Optional - can be removed if new summary is sufficient)
+    const eliteCompletedSpan = document.getElementById('elite-completed');
+    const eliteTotalSpan = document.getElementById('elite-total');
+    const overallProgressSpan = document.getElementById('overall-progress');
+    if (eliteCompletedSpan) eliteCompletedSpan.textContent = grandTotalCompleted;
+    if (eliteTotalSpan) eliteTotalSpan.textContent = grandTotalTasks;
+    if (overallProgressSpan) overallProgressSpan.textContent = overallPercentage;
+
+    // --- NEW: Update Dashboard Summary Overview Spans ---
+    const summaryCompletedSpan = document.getElementById('summary-diaries-completed');
+    const summaryTotalSpan = document.getElementById('summary-diaries-total');
+    const summaryPercentageSpan = document.getElementById('summary-diaries-percentage');
+    if (summaryCompletedSpan) summaryCompletedSpan.textContent = grandTotalCompleted;
+    if (summaryTotalSpan) summaryTotalSpan.textContent = grandTotalTasks;
+    if (summaryPercentageSpan) summaryPercentageSpan.textContent = overallPercentage;
+    // --- END NEW ---
 }
 
 export function updateCombatLevelDisplay() { /* ... (implementation from previous response, verified correct) ... */
@@ -351,10 +435,43 @@ export function populateMilestoneGoals() { /* ... (implementation from previous 
     }
 }
 
-export function updateCumulativeGoalProgress() { /* ... (implementation from previous response, verified correct) ... */
-    const progressBar = document.getElementById('cumulative-progress-bar'); const percentageSpan = document.getElementById('cumulative-percentage'); if (!progressBar || !percentageSpan) return;
-    let total = 0, completed = 0; for (const tierKey in milestoneGoalsData) { if(milestoneGoalsData[tierKey]?.goals) { total += milestoneGoalsData[tierKey].goals.length; completed += milestoneGoalsData[tierKey].goals.filter(g => g.achieved).length; } }
-    const percentage = (total > 0) ? Math.floor((completed / total) * 100) : 0; progressBar.style.width = `${percentage}%`; percentageSpan.textContent = `${percentage}%`;
+// ui.js
+
+/**
+ * Updates the cumulative progress bar/percentage for milestone goals
+ * AND the corresponding stats in the summary overview section.
+ */
+export function updateCumulativeGoalProgress() {
+    const progressBar = document.getElementById('cumulative-progress-bar');
+    const percentageSpan = document.getElementById('cumulative-percentage');
+    // --- NEW: Get summary overview spans ---
+    const summaryCompletedSpan = document.getElementById('summary-goals-completed');
+    const summaryTotalSpan = document.getElementById('summary-goals-total');
+    const summaryPercentageSpan = document.getElementById('summary-goals-percentage');
+    // --- END NEW ---
+
+    if (!progressBar || !percentageSpan) return; // Keep check for cumulative bar elements
+
+    // Calculate totals from data
+    let totalGoalsCumulative = 0;
+    let completedGoalsCumulative = 0;
+    for (const tierKey in milestoneGoalsData) {
+        if(milestoneGoalsData[tierKey]?.goals) {
+            totalGoalsCumulative += milestoneGoalsData[tierKey].goals.length;
+            completedGoalsCumulative += milestoneGoalsData[tierKey].goals.filter(g => g.achieved).length;
+        }
+    }
+    const percentage = (totalGoalsCumulative > 0) ? Math.floor((completedGoalsCumulative / totalGoalsCumulative) * 100) : 0;
+
+    // Update Cumulative Bar DOM
+    progressBar.style.width = `${percentage}%`;
+    percentageSpan.textContent = `${percentage}%`;
+
+    // --- NEW: Update Dashboard Summary Overview Spans ---
+    if (summaryCompletedSpan) summaryCompletedSpan.textContent = completedGoalsCumulative;
+    if (summaryTotalSpan) summaryTotalSpan.textContent = totalGoalsCumulative;
+    if (summaryPercentageSpan) summaryPercentageSpan.textContent = percentage;
+    // --- END NEW ---
 }
 
 export function populateGearProgression() { /* ... (implementation from previous response, verified correct) ... */
@@ -387,10 +504,43 @@ export function updateGearStageCost(stageKey) { /* ... (implementation from prev
     costElement.textContent = `Cost: ${formatGP(totalCost)}`; costElement.title = `Total cost of remaining items: ${totalCost.toLocaleString()} gp`;
 }
 
-export function updateCumulativeGearProgress() { /* ... (implementation from previous response, verified correct) ... */
-    const progressBar = document.getElementById('cumulative-gear-progress-bar'); const percentageSpan = document.getElementById('cumulative-gear-percentage'); if (!progressBar || !percentageSpan) return;
-    let total = 0, completed = 0; for (const stageKey in gearProgressionData) { if (gearProgressionData[stageKey]?.items) { total += gearProgressionData[stageKey].items.length; completed += gearProgressionData[stageKey].items.filter(i => i.achieved).length; } }
-    const percentage = (total > 0) ? Math.floor((completed / total) * 100) : 0; progressBar.style.width = `${percentage}%`; percentageSpan.textContent = `${percentage}%`;
+// ui.js
+
+/**
+ * Updates the cumulative progress bar/percentage for gear progression
+ * AND the corresponding stats in the summary overview section.
+ */
+export function updateCumulativeGearProgress() {
+    const progressBar = document.getElementById('cumulative-gear-progress-bar');
+    const percentageSpan = document.getElementById('cumulative-gear-percentage');
+    // --- NEW: Get summary overview spans ---
+    const summaryCompletedSpan = document.getElementById('summary-gear-completed');
+    const summaryTotalSpan = document.getElementById('summary-gear-total');
+    const summaryPercentageSpan = document.getElementById('summary-gear-percentage');
+    // --- END NEW ---
+
+    if (!progressBar || !percentageSpan) return; // Keep check for cumulative bar elements
+
+    // Calculate from data
+    let totalItemsCumulative = 0;
+    let completedItemsCumulative = 0;
+    for (const stageKey in gearProgressionData) {
+         if(gearProgressionData[stageKey]?.items) {
+            totalItemsCumulative += gearProgressionData[stageKey].items.length;
+            completedItemsCumulative += gearProgressionData[stageKey].items.filter(i => i.achieved).length;
+         }
+    }
+    const percentage = (totalItemsCumulative > 0) ? Math.floor((completedItemsCumulative / totalItemsCumulative) * 100) : 0;
+
+    // Update Cumulative Bar DOM
+    progressBar.style.width = `${percentage}%`;
+    percentageSpan.textContent = `${percentage}%`;
+
+    // --- NEW: Update Dashboard Summary Overview Spans ---
+    if (summaryCompletedSpan) summaryCompletedSpan.textContent = completedItemsCumulative;
+    if (summaryTotalSpan) summaryTotalSpan.textContent = totalItemsCumulative;
+    if (summaryPercentageSpan) summaryPercentageSpan.textContent = percentage;
+    // --- END NEW ---
 }
 
 export function updateCompleteAllCheckboxState(diaryKey, difficulty) { /* ... (implementation from previous response, verified correct) ... */
@@ -460,17 +610,101 @@ export function closeSkillEditor() { /* ... (implementation from previous respon
     const modal = document.getElementById('skill-editor-modal'); if (modal) modal.style.display = 'none';
 }
 
-export function updateDashboardSummaryProgress() { /* ... (implementation from previous response, verified correct) ... */
-    const milestoneContainer = document.getElementById('summary-milestones'); const gearContainer = document.getElementById('summary-gear'); const diaryContainer = document.getElementById('summary-diaries'); const caContainer = document.getElementById('summary-combat-tasks'); if (!milestoneContainer || !gearContainer || !diaryContainer || !caContainer) return;
-    const createSummaryRow = (label, percentage, color) => { const row = document.createElement('div'); row.className = 'summary-progress-row'; row.innerHTML = `<span class="summary-label">${label}</span><div class="summary-bar-container"><div class="summary-bar" style="width: ${percentage}%; background-color: ${color || 'var(--accent-blue-muted)'};"></div></div><span class="summary-percentage">${percentage}%</span>`; return row; };
-    milestoneContainer.innerHTML = ''; for (const tierKey in milestoneGoalsData) { const tier = milestoneGoalsData[tierKey]; if (tier?.goals) { const total = tier.goals.length; const completed = tier.goals.filter(g => g.achieved).length; const percentage = (total > 0) ? Math.floor((completed / total) * 100) : 0; milestoneContainer.appendChild(createSummaryRow(tier.name, percentage, tier.color)); } }
-    gearContainer.innerHTML = ''; for (const stageKey in gearProgressionData) { const stage = gearProgressionData[stageKey]; if (stage?.items) { const total = stage.items.length; const completed = stage.items.filter(i => i.achieved).length; const percentage = (total > 0) ? Math.floor((completed / total) * 100) : 0; gearContainer.appendChild(createSummaryRow(stage.name, percentage, stage.color)); } }
-    diaryContainer.innerHTML = ''; const diaryLevels = { Easy: { color: 'var(--accent-green-muted)', percentage: 0 }, Medium: { color: 'var(--accent-gold-dark)', percentage: 0 }, Hard: { color: 'var(--accent-red-deep)', percentage: 0 }, Elite: { color: 'var(--accent-indigo-muted)', percentage: 0 } }; const currentDiaryState = diaryCompletionState;
-    for (const diffLevel in diaryLevels) { let total = 0, completed = 0; const difficultyLower = diffLevel.toLowerCase(); for (const diaryKey in diaries) { total += diaries[diaryKey]?.tasks?.[difficultyLower]?.length || 0; completed += currentDiaryState?.[diaryKey]?.[difficultyLower]?.length || 0; } diaryLevels[diffLevel].percentage = total > 0 ? Math.floor((completed / total) * 100) : 0; }
+// ui.js
+
+/**
+ * Updates the main dashboard summary section with current progress percentages
+ * for all categories (Diaries, Quests, Goals, Gear, CAs).
+ */
+export function updateDashboardSummaryProgress() {
+    const milestoneContainer = document.getElementById('summary-milestones');
+    const gearContainer = document.getElementById('summary-gear');
+    const diaryContainer = document.getElementById('summary-diaries');
+    const caContainer = document.getElementById('summary-combat-tasks');
+    const questContainer = document.getElementById('summary-quests'); // <-- Get quest container
+
+    if (!milestoneContainer || !gearContainer || !diaryContainer || !caContainer || !questContainer) { // <-- Check quest container
+        console.error("One or more dashboard summary containers not found!");
+        return;
+    }
+
+    // Helper function (remains the same)
+    const createSummaryRow = (label, percentage, color) => { /* ... */
+        const row = document.createElement('div'); row.className = 'summary-progress-row';
+        row.innerHTML = `<span class="summary-label">${label}</span><div class="summary-bar-container"><div class="summary-bar" style="width: ${percentage}%; background-color: ${color || 'var(--accent-blue-muted)'};"></div></div><span class="summary-percentage">${percentage}%</span>`;
+        return row;
+    };
+
+    // Update Milestones (No change)
+    milestoneContainer.innerHTML = '';
+    for (const tierKey in milestoneGoalsData) { /* ... */
+        const tier = milestoneGoalsData[tierKey]; if (tier?.goals) { const total = tier.goals.length; const completed = tier.goals.filter(g => g.achieved).length; const percentage = (total > 0) ? Math.floor((completed / total) * 100) : 0; milestoneContainer.appendChild(createSummaryRow(tier.name, percentage, tier.color)); }
+    }
+
+    // Update Gear (No change)
+    gearContainer.innerHTML = '';
+    for (const stageKey in gearProgressionData) { /* ... */
+        const stage = gearProgressionData[stageKey]; if (stage?.items) { const total = stage.items.length; const completed = stage.items.filter(i => i.achieved).length; const percentage = (total > 0) ? Math.floor((completed / total) * 100) : 0; gearContainer.appendChild(createSummaryRow(stage.name, percentage, stage.color)); }
+    }
+
+    // Update Diaries (No change)
+    diaryContainer.innerHTML = '';
+    const diaryLevels = { Easy: { color: 'var(--accent-green-muted)', percentage: 0 }, Medium: { color: 'var(--accent-gold-dark)', percentage: 0 }, Hard: { color: 'var(--accent-red-deep)', percentage: 0 }, Elite: { color: 'var(--accent-indigo-muted)', percentage: 0 } };
+    const currentDiaryState = diaryCompletionState;
+    for (const diffLevel in diaryLevels) { /* ... */
+        let total = 0, completed = 0; const difficultyLower = diffLevel.toLowerCase(); for (const diaryKey in diaries) { total += diaries[diaryKey]?.tasks?.[difficultyLower]?.length || 0; completed += currentDiaryState?.[diaryKey]?.[difficultyLower]?.length || 0; } diaryLevels[diffLevel].percentage = total > 0 ? Math.floor((completed / total) * 100) : 0;
+    }
     for (const levelName in diaryLevels) { diaryContainer.appendChild(createSummaryRow(levelName, diaryLevels[levelName].percentage, diaryLevels[levelName].color)); }
-    caContainer.innerHTML = ''; const caTierOrder = ["easy", "medium", "hard", "elite", "master", "grandmaster"]; const caDefaultColors = { easy: "#a0d2db", medium: "#a8d8a0", hard: "#f8c070", elite: "#f5a7a7", master: "#d7b0f8", grandmaster: "#cccccc" };
-    caTierOrder.forEach(tierKey => { let total = 0, completed = 0; for (const bossKey in combatAchievementsData) { combatAchievementsData[bossKey]?.tasks?.forEach(task => { if (task.tier === tierKey) { total++; if (task.achieved) completed++; } }); } if (total > 0) { const percentage = Math.floor((completed / total) * 100); const tierName = tierKey.charAt(0).toUpperCase() + tierKey.slice(1); caContainer.appendChild(createSummaryRow(tierName, percentage, caDefaultColors[tierKey])); } });
-}
+
+    // Update Combat Achievements (No change)
+    caContainer.innerHTML = '';
+    const caTierOrder = ["easy", "medium", "hard", "elite", "master", "grandmaster"];
+    const caDefaultColors = { easy: "#a0d2db", medium: "#a8d8a0", hard: "#f8c070", elite: "#f5a7a7", master: "#d7b0f8", grandmaster: "#cccccc" };
+    caTierOrder.forEach(tierKey => { /* ... */
+        let total = 0, completed = 0; for (const bossKey in combatAchievementsData) { combatAchievementsData[bossKey]?.tasks?.forEach(task => { if (task.tier === tierKey) { total++; if (task.achieved) completed++; } }); } if (total > 0) { const percentage = Math.floor((completed / total) * 100); const tierName = tierKey.charAt(0).toUpperCase() + tierKey.slice(1); caContainer.appendChild(createSummaryRow(tierName, percentage, caDefaultColors[tierKey])); }
+    });
+
+    // --- NEW: Update Quest Summary Section ---
+    questContainer.innerHTML = '';
+    let overallQuestTotal = 0;
+    let overallQuestCompleted = 0;
+
+    // Calculate totals per category for individual bars
+    for (const categoryKey in questUnlocksData) {
+        const category = questUnlocksData[categoryKey];
+        if (category?.quests?.length > 0) {
+            const total = category.quests.length;
+            let completed = 0;
+            category.quests.forEach(quest => {
+                if (questCompletionState[quest.name] === true) {
+                    completed++;
+                }
+            });
+            overallQuestTotal += total; // Add to overall count
+            overallQuestCompleted += completed; // Add to overall count
+            const percentage = Math.floor((completed / total) * 100);
+            // Use a default color or define category colors in data.js if desired
+            questContainer.appendChild(createSummaryRow(category.name, percentage, 'var(--accent-blue-muted)'));
+        }
+    }
+
+    // Add major milestones to overall count
+    if (majorMilestonesData?.length > 0) {
+        overallQuestTotal += majorMilestonesData.length;
+        majorMilestonesData.forEach(milestone => {
+            if (questCompletionState[milestone.name] === true) {
+                overallQuestCompleted++;
+            }
+        });
+        // Optionally, add a summary bar for Major Milestones too
+        const mmTotal = majorMilestonesData.length;
+        const mmCompleted = majorMilestonesData.filter(m => questCompletionState[m.name]).length;
+        const mmPercentage = mmTotal > 0 ? Math.floor((mmCompleted / mmTotal) * 100) : 0;
+        questContainer.appendChild(createSummaryRow("Major Milestones", mmPercentage, 'var(--accent-purple-muted)'));
+    }
+    // --- END NEW Quest Summary Section ---
+
+} // End of updateDashboardSummaryProgress
 
 export function populateCombatTasks() { /* ... (implementation from previous response, verified correct) ... */
     const caGrid = document.querySelector('#combat-tasks-view .combat-tasks-grid'); if (!caGrid) return; caGrid.innerHTML = ''; const filters = getCurrentCAFilters(); updateFilterButtonsUI(filters);
@@ -499,11 +733,70 @@ export function populateCombatTasks() { /* ... (implementation from previous res
     updateCumulativeCombatProgress();
 }
 
-export function updateCumulativeCombatProgress() { /* ... (implementation from previous response, verified correct) ... */
-    const totalPointsSpan = document.getElementById('ca-total-points'); const currentTierSpan = document.getElementById('ca-current-tier'); const progressBar = document.getElementById('cumulative-ca-progress-bar'); const percentageSpan = document.getElementById('cumulative-ca-percentage'); if (!totalPointsSpan || !currentTierSpan || !progressBar || !percentageSpan) return;
-    let grandTotalPoints = 0, totalPossiblePoints = 0; for (const bossKey in combatAchievementsData) { combatAchievementsData[bossKey]?.tasks?.forEach(task => { const points = task.points || 0; totalPossiblePoints += points; if (task.achieved) grandTotalPoints += points; }); }
-    let currentTierName = "None"; if (grandTotalPoints >= 1153) currentTierName = "Grandmaster"; else if (grandTotalPoints >= 718) currentTierName = "Master"; else if (grandTotalPoints >= 405) currentTierName = "Elite"; else if (grandTotalPoints >= 178) currentTierName = "Hard"; else if (grandTotalPoints >= 58) currentTierName = "Medium"; else if (grandTotalPoints >= 8) currentTierName = "Easy";
-    const percentage = totalPossiblePoints > 0 ? Math.floor((grandTotalPoints / totalPossiblePoints) * 100) : 0; totalPointsSpan.textContent = grandTotalPoints; currentTierSpan.textContent = currentTierName; progressBar.style.width = `${percentage}%`; percentageSpan.textContent = `${percentage}%`;
+// ui.js
+
+/**
+ * Updates the cumulative CA progress display (Total Points, Current Tier, Bar)
+ * AND the corresponding stats in the summary overview section.
+ * Calculates based on the complete combatAchievementsData object.
+ */
+export function updateCumulativeCombatProgress() {
+    // Cumulative Tracker Elements
+    const totalPointsSpan = document.getElementById('ca-total-points');
+    const currentTierSpan = document.getElementById('ca-current-tier');
+    const progressBar = document.getElementById('cumulative-ca-progress-bar');
+    const percentageSpan = document.getElementById('cumulative-ca-percentage');
+    // --- NEW: Get summary overview spans ---
+    const summaryCompletedSpan = document.getElementById('summary-ca-completed');
+    const summaryTotalSpan = document.getElementById('summary-ca-total');
+    const summaryPointsSpan = document.getElementById('summary-ca-points');
+    // --- END NEW ---
+
+
+    if (!totalPointsSpan || !currentTierSpan || !progressBar || !percentageSpan) {
+         console.error("Missing elements for cumulative CA progress display.");
+         return;
+    }
+
+    let grandTotalPoints = 0;
+    let totalTasks = 0;
+    let completedTasks = 0;
+
+    // Iterate through the BOSS-keyed structure
+    for (const bossKey in combatAchievementsData) {
+        combatAchievementsData[bossKey]?.tasks?.forEach(task => {
+             totalTasks++; // Increment total task count
+             const points = task.points || 0;
+            if (task.achieved) {
+                grandTotalPoints += points;
+                completedTasks++; // Increment completed task count
+            }
+        });
+    }
+
+    // Determine Tier based on Points
+    let currentTierName = "None";
+    if (grandTotalPoints >= 1153) currentTierName = "Grandmaster";
+    else if (grandTotalPoints >= 718) currentTierName = "Master";
+    else if (grandTotalPoints >= 405) currentTierName = "Elite";
+    else if (grandTotalPoints >= 178) currentTierName = "Hard";
+    else if (grandTotalPoints >= 58) currentTierName = "Medium";
+    else if (grandTotalPoints >= 8) currentTierName = "Easy";
+
+    // Calculate overall percentage (based on tasks completed, not points)
+    const percentage = totalTasks > 0 ? Math.floor((completedTasks / totalTasks) * 100) : 0;
+
+    // Update Cumulative Tracker DOM
+    totalPointsSpan.textContent = grandTotalPoints;
+    currentTierSpan.textContent = currentTierName;
+    progressBar.style.width = `${percentage}%`;
+    percentageSpan.textContent = `${percentage}%`;
+
+    // --- NEW: Update Dashboard Summary Overview Spans ---
+    if (summaryCompletedSpan) summaryCompletedSpan.textContent = completedTasks;
+    if (summaryTotalSpan) summaryTotalSpan.textContent = totalTasks;
+    if (summaryPointsSpan) summaryPointsSpan.textContent = grandTotalPoints; // Show total points here
+    // --- END NEW ---
 }
 
 
@@ -604,6 +897,55 @@ export function populateQuestsView() {
     // Append the grid to the main view container
     questViewContainer.appendChild(grid);
     console.log("Quests view populated.");
+}
+
+// ui.js
+
+/**
+ * Calculates and updates the quest completion stats in the summary overview section.
+ */
+export function updateQuestSummary() {
+    const summaryCompletedSpan = document.getElementById('summary-quests-completed');
+    const summaryTotalSpan = document.getElementById('summary-quests-total');
+    const summaryPercentageSpan = document.getElementById('summary-quests-percentage');
+
+    if (!summaryCompletedSpan || !summaryTotalSpan || !summaryPercentageSpan) {
+        console.warn("Missing elements for quest summary overview display.");
+        return;
+    }
+
+    let totalQuests = 0;
+    let completedQuests = 0;
+
+    // Count notable unlocks
+    for (const categoryKey in questUnlocksData) {
+        const category = questUnlocksData[categoryKey];
+        if (category?.quests) {
+            totalQuests += category.quests.length;
+            category.quests.forEach(quest => {
+                if (questCompletionState[quest.name] === true) {
+                    completedQuests++;
+                }
+            });
+        }
+    }
+
+    // Count major milestones
+    if (majorMilestonesData) {
+        totalQuests += majorMilestonesData.length;
+        majorMilestonesData.forEach(milestone => {
+            if (questCompletionState[milestone.name] === true) {
+                completedQuests++;
+            }
+        });
+    }
+
+    const percentage = totalQuests > 0 ? Math.floor((completedQuests / totalQuests) * 100) : 0;
+
+    // Update DOM
+    summaryCompletedSpan.textContent = completedQuests;
+    summaryTotalSpan.textContent = totalQuests;
+    summaryPercentageSpan.textContent = percentage;
 }
 
 // --- Global listeners for Skill Editor Rate Inputs ---
