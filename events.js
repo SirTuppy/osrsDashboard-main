@@ -1,6 +1,6 @@
 // events.js - TOP OF FILE
 import { miscellaneousGoals, milestoneGoalsData, gearProgressionData, combatAchievementsData } from './data.js';
-import { reorderMiscellaneousGoals, saveMiscellaneousGoals, saveMilestoneGoals, saveGearProgression, saveCombatAchievements } from './storage.js';
+import { reorderMiscellaneousGoals, saveMiscellaneousGoals, saveMilestoneGoals, saveGearProgression, saveCombatAchievements, saveProgressToLocalStorage } from './storage.js';
 import { showView, updateGearStageCost, loadDiaryDifficultyContent, updateCompleteAllCheckboxState, updateCombatTierProgress, updateCumulativeCombatProgress, populateCombatTasks, updateCurrentCAFilters, getCurrentCAFilters } from './ui.js'; // Adjust path if needed
 import { populateMiscellaneousGoals, updateMilestoneTierProgress, updateCumulativeGoalProgress, updateGearStageProgress, updateCumulativeGearProgress, updateTaskProgressDisplay, updateDiaryHeaderProgress, updateGlobalProgress, updateDashboardSummaryProgress } from './ui.js'; // Need UI update functions
 
@@ -33,8 +33,10 @@ export function handleDiaryTaskChange(event) {
     updateCompleteAllCheckboxState(diaryKey, difficulty);
     // --------------
 
-    // Saving is handled by main button
-}
+    console.log(`Diary task ${diaryKey}-${difficulty}-${checkbox.dataset.index} changed. Saving progress...`);
+     saveProgressToLocalStorage(); // Call the main save function on every change
+     // ---------------------
+ }
 
  export function handleMiscGoalCheck(event) {
     const index = parseInt(event.target.dataset.index);
@@ -59,8 +61,9 @@ export function handleMiscGoalDescChange(event) {
     }
  }
 
- /**
+/**
  * Handles toggling the master "Complete All" checkbox for a difficulty.
+ * Directly updates child checkboxes and relevant UI elements.
  * @param {Event} event
  */
 export function handleCompleteAllToggle(event) {
@@ -69,31 +72,36 @@ export function handleCompleteAllToggle(event) {
 
     const diaryKey = masterCheckbox.dataset.diary;
     const difficulty = masterCheckbox.dataset.difficulty;
-    const isChecked = masterCheckbox.checked;
+    const isChecked = masterCheckbox.checked; // The NEW desired state for all tasks
 
     if (!diaryKey || !difficulty) return;
 
-    // Find the parent task category or tasks container for this specific section
     const taskCategory = masterCheckbox.closest('.task-category');
     if (!taskCategory) return;
 
-    // Find all individual task checkboxes within this specific category
     const taskCheckboxes = taskCategory.querySelectorAll(`.task-checkbox[data-diary="${diaryKey}"][data-difficulty="${difficulty}"]`);
 
-    console.log(`Toggling all ${difficulty} tasks in ${diaryKey} to ${isChecked}`);
+    console.log(`Setting all ${difficulty} tasks in ${diaryKey} to ${isChecked}`);
 
+    // --- Directly update DOM for child checkboxes ---
     taskCheckboxes.forEach(checkbox => {
-        // Only change and dispatch if the state is different to avoid redundant updates/loops
-        if (checkbox.checked !== isChecked) {
-            checkbox.checked = isChecked;
-            // IMPORTANT: Dispatch a change event so handleDiaryTaskChange runs for each task
-            // This ensures individual task styling and progress bars update correctly.
-            checkbox.dispatchEvent(new Event('change', { bubbles: true }));
-        }
+        checkbox.checked = isChecked;
+        // Update visual style directly
+        checkbox.closest('.task')?.classList.toggle('task-completed', isChecked);
     });
+    // -----------------------------------------------
 
-    // Note: We don't call updateCompleteAllCheckboxState here because
-    // handleDiaryTaskChange (triggered by the dispatched event) should call it.
+    // --- Update UI elements ONCE ---
+    updateTaskProgressDisplay(diaryKey, difficulty);
+    updateDiaryHeaderProgress(diaryKey);
+    updateGlobalProgress();
+    updateDashboardSummaryProgress();
+    masterCheckbox.indeterminate = false;
+
+    // --- ADD AUTO-SAVE ---
+     console.log(`Toggled all ${diaryKey}-${difficulty} tasks. Saving progress...`);
+     saveProgressToLocalStorage(); // Call the main save function after toggling all
+     // ---------------------
 }
 
  /**

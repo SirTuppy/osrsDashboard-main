@@ -94,24 +94,6 @@ function setupHiscoresFetching() {
      });
   }
 
-  function setupSaveButton() {
-    const saveButton = document.getElementById('save-progress');
-    if (saveButton) {
-        saveButton.addEventListener('click', function() {
-            saveProgressToLocalStorage(); // Use imported storage function
-            // ... feedback logic ...
-            const originalText = saveButton.textContent;
-            saveButton.textContent = "Saved!";
-            saveButton.style.backgroundColor = "#45a049";
-            saveButton.disabled = true;
-            setTimeout(() => {
-                saveButton.textContent = originalText;
-                saveButton.style.backgroundColor = "";
-                saveButton.disabled = false;
-            }, 1500);
-        });
-    }
-}
 
 function setupAddGoalButton() {
     document.getElementById('add-goal-button')?.addEventListener('click', addMiscellaneousGoal); // Use imported events function
@@ -227,10 +209,8 @@ if (diariesGrid) {
 }
 // -------------------------------------------
 
-setupSaveButton(); // This button now saves the merged diary state
 setupAddGoalButton();
 setupCAFilters();
-setupSaveButton();
 setupAddGoalButton();
 setupSkillEditor();
 setupImportExport();
