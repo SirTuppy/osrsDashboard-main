@@ -1,7 +1,7 @@
 // events.js - TOP OF FILE
-import { miscellaneousGoals, milestoneGoalsData, gearProgressionData } from './data.js';
-import { reorderMiscellaneousGoals, saveMiscellaneousGoals, saveMilestoneGoals, saveGearProgression } from './storage.js';
-import { showView, updateGearStageCost, loadDiaryDifficultyContent, updateCompleteAllCheckboxState } from './ui.js'; // Adjust path if needed
+import { miscellaneousGoals, milestoneGoalsData, gearProgressionData, combatAchievementsData } from './data.js';
+import { reorderMiscellaneousGoals, saveMiscellaneousGoals, saveMilestoneGoals, saveGearProgression, saveCombatAchievements } from './storage.js';
+import { showView, updateGearStageCost, loadDiaryDifficultyContent, updateCompleteAllCheckboxState, updateCombatTierProgress, updateCumulativeCombatProgress, populateCombatTasks, updateCurrentCAFilters, getCurrentCAFilters } from './ui.js'; // Adjust path if needed
 import { populateMiscellaneousGoals, updateMilestoneTierProgress, updateCumulativeGoalProgress, updateGearStageProgress, updateCumulativeGearProgress, updateTaskProgressDisplay, updateDiaryHeaderProgress, updateGlobalProgress, updateDashboardSummaryProgress } from './ui.js'; // Need UI update functions
 
 // Drag state variables
@@ -131,6 +131,147 @@ export function handleDifficultyTabClick(event) {
         populateMiscellaneousGoals(); // Use imported UI function
         saveMiscellaneousGoals(); // Use imported storage function
     }
+}
+
+/**
+ * Handles changes to individual Combat Achievement task checkboxes.
+ * Finds task using boss key and task name from dataset.
+ */
+export function handleCombatTaskChange(event) {
+    const checkbox = event.target;
+    if (!checkbox.classList.contains('ca-task-checkbox')) return;
+
+    const bossKey = checkbox.dataset.bossKey;
+    const taskName = checkbox.dataset.taskName; // Use name to find task
+    const isChecked = checkbox.checked;
+
+    if (!bossKey || !taskName || !combatAchievementsData[bossKey]?.tasks) {
+         console.error(`Could not find data for CA task: boss=${bossKey}, name=${taskName}`);
+         return;
+    }
+
+    // Find the specific task object in the data structure
+    const taskIndex = combatAchievementsData[bossKey].tasks.findIndex(t => t.name === taskName);
+
+    if (taskIndex !== -1) {
+        // Update data state
+        combatAchievementsData[bossKey].tasks[taskIndex].achieved = isChecked;
+
+        // Update UI
+        checkbox.closest('.task').classList.toggle('task-completed', isChecked);
+
+        // Update the progress display IN THE BOSS HEADER for filtered tasks
+        // We might need a new function for this, or skip it if too complex for now
+        // updateBossHeaderProgress(bossKey); // New function needed
+
+        updateCumulativeCombatProgress(); // Update overall progress/points/tier name
+        updateDashboardSummaryProgress(); // Update summary on main dashboard
+
+        // Save progress
+        saveCombatAchievements(); // Save immediately on change
+
+    } else {
+         console.error(`Combat Task data object not found for name: ${taskName} under boss key: ${bossKey}`);
+    }
+}
+
+// --- NEW: CA Filter Handlers ---
+
+// Handles clicks on Tier filter buttons
+export function handleCATierFilter(event) {
+    const button = event.target.closest('.filter-button[data-filter-type="tier"]');
+    if (!button) return;
+
+    const value = button.dataset.filterValue;
+    const container = button.closest('.filter-options');
+    let currentFilters = getCurrentCAFilters(); // Get current state
+
+    // Logic for handling 'all' vs specific tiers (multi-select for tiers)
+    if (value === 'all') {
+        currentFilters.tiers = ['all'];
+        container.querySelectorAll('.filter-button').forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+    } else {
+        // Remove 'all' if active
+        const allButton = container.querySelector('[data-filter-value="all"]');
+        if (allButton) allButton.classList.remove('active');
+
+        // Toggle the clicked button's state
+        button.classList.toggle('active');
+
+        // Update the tiers array based on active buttons
+        const activeButtons = container.querySelectorAll('.filter-button.active');
+        if (activeButtons.length === 0) {
+            // If none are active, default back to 'all'
+            currentFilters.tiers = ['all'];
+            if (allButton) allButton.classList.add('active');
+        } else {
+            currentFilters.tiers = Array.from(activeButtons).map(btn => btn.dataset.filterValue);
+        }
+    }
+
+    updateCurrentCAFilters(currentFilters); // Update state
+    populateCombatTasks(); // Re-render list
+}
+
+// Handles clicks on Type filter buttons (similar logic to Tier)
+export function handleCATypeFilter(event) {
+    const button = event.target.closest('.filter-button[data-filter-type="type"]');
+    if (!button) return;
+
+    const value = button.dataset.filterValue;
+    const container = button.closest('.filter-options');
+    let currentFilters = getCurrentCAFilters();
+
+    if (value === 'all') {
+        currentFilters.types = ['all'];
+        container.querySelectorAll('.filter-button').forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+    } else {
+        const allButton = container.querySelector('[data-filter-value="all"]');
+        if (allButton) allButton.classList.remove('active');
+        button.classList.toggle('active');
+        const activeButtons = container.querySelectorAll('.filter-button.active');
+        if (activeButtons.length === 0) {
+            currentFilters.types = ['all'];
+            if (allButton) allButton.classList.add('active');
+        } else {
+            currentFilters.types = Array.from(activeButtons).map(btn => btn.dataset.filterValue);
+        }
+    }
+
+    updateCurrentCAFilters(currentFilters);
+    populateCombatTasks();
+}
+
+// Handles clicks on Status filter buttons (single select logic)
+export function handleCAStatusFilter(event) {
+    const button = event.target.closest('.filter-button[data-filter-type="status"]');
+    if (!button) return;
+
+    const value = button.dataset.filterValue;
+    const container = button.closest('.filter-options');
+    let currentFilters = getCurrentCAFilters();
+
+    // Only one status can be active
+    currentFilters.status = value;
+    container.querySelectorAll('.filter-button').forEach(btn => btn.classList.remove('active'));
+    button.classList.add('active');
+
+    updateCurrentCAFilters(currentFilters);
+    populateCombatTasks();
+}
+
+// Handles input in the Boss search box
+export function handleCABossSearch(event) {
+    const searchTerm = event.target.value.trim();
+    let currentFilters = getCurrentCAFilters();
+
+    currentFilters.bossSearch = searchTerm;
+
+    updateCurrentCAFilters(currentFilters);
+    // Optional: Debounce this call if performance is an issue on rapid typing
+    populateCombatTasks();
 }
 
 export function handleMilestoneGoalChange(event) {

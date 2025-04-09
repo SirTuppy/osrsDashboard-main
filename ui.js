@@ -3,15 +3,24 @@
 
 // --- IMPORTS ---
 // Import data needed to display information
-import { skillRequirements, miscellaneousGoals, milestoneGoalsData, gearProgressionData, diaries } from './data.js';
+import { skillRequirements, miscellaneousGoals, milestoneGoalsData, gearProgressionData, diaries, combatAchievementsData, combatAchievementTiers, combatAchievementPointsMap } from './data.js';
 // Import calculation functions used for display logic
 import { totalXpForLevel, formatXp, calculateHoursNeeded, parseBoostAmount, calculateCombatLevel } from './calculations.js';
 // Import specific event handlers needed for attaching listeners IN this module
-import { handleDragStart, handleDragOver, handleDragEnd, handleDragLeave, handleDrop, handleMilestoneGoalChange, handleGearItemChange, handleMiscGoalCheck, handleMiscGoalDescChange, handleMiscGoalDescKey, handleMiscGoalRemove, handleDiaryTaskChange, handleCompleteAllToggle } from './events.js';
+import { handleDragStart, handleDragOver, handleDragEnd, handleDragLeave, handleDrop, handleMilestoneGoalChange, handleGearItemChange, handleMiscGoalCheck, handleMiscGoalDescChange, handleMiscGoalDescKey, handleMiscGoalRemove, handleDiaryTaskChange, handleCompleteAllToggle, handleCombatTaskChange } from './events.js';
 // NOTE: We import handlers that are attached *during UI population*.
 // Handlers attached directly in app.js (like navigation, main save button) don't need to be imported here.
 
 let loadedGlobalDiaryProgress = {};
+
+// --- Module Scope Variable for Filters (Placeholder) ---
+// We'll implement reading from actual filter controls later
+let currentCAFilters = {
+    tiers: ['all'], // ['easy', 'medium', ...] or ['all']
+    types: ['all'], // ['Kill Count', 'Mechanical', ...] or ['all']
+    status: 'all', // 'all', 'incomplete', 'completed'
+    bossSearch: ''
+};
 
 function formatGP(amount) {
     if (amount <= 0) return "0 gp";
@@ -20,7 +29,113 @@ function formatGP(amount) {
     if (amount >= 1000) return (amount / 1000).toFixed(1) + "k gp";
     return amount.toLocaleString() + " gp";
 }
+
+// --- NEW HELPER for toggling boss sections ---
+function toggleBossSection(event) {
+    const header = event.currentTarget; // The header that was clicked
+    const container = header.closest('.ca-boss-container');
+    if (!container) return;
+    const taskList = container.querySelector('.ca-task-list');
+    const icon = header.querySelector('.ca-toggle-icon');
+
+    if (taskList) {
+        const isHidden = taskList.style.display === 'none';
+        taskList.style.display = isHidden ? 'block' : 'none';
+        if (icon) {
+            icon.textContent = isHidden ? '▲' : '▼'; // Toggle icon indicator
+        }
+        container.classList.toggle('collapsed', !isHidden); // Optional class for styling
+    }
+}
+
 // --- EXPORTED FUNCTIONS ---
+
+// --- NEW: Functions to get/set filter state ---
+export function getCurrentCAFilters() {
+    // We might read directly from UI controls here in the future,
+    // but for now, just return the module variable.
+    // Make sure to update the UI controls to reflect this state on load if needed.
+    return { ...currentCAFilters }; // Return a copy
+}
+
+export function updateCurrentCAFilters(newFilters) {
+    currentCAFilters = { ...currentCAFilters, ...newFilters }; // Merge updates
+    console.log("Updated CA Filters:", currentCAFilters); // Log for debugging
+}
+
+/**
+ * Filters tasks for a specific boss based on current filter state.
+ * @param {Array} bossTasks - Array of task objects for one boss.
+ * @param {object} filters - The current filter state object.
+ * @returns {Array} - Filtered array of task objects.
+ */
+function filterBossTasks(bossTasks, filters) {
+    if (!bossTasks) return [];
+
+    return bossTasks.filter(task => {
+        // Tier Filter
+        const tierLower = task.tier?.toLowerCase();
+        if (!filters.tiers.includes('all') && !filters.tiers.includes(tierLower)) {
+            return false;
+        }
+
+        // Type Filter (Case-insensitive comparison)
+        const typeLower = task.type?.toLowerCase();
+        const filterTypesLower = filters.types.map(t => t.toLowerCase());
+        if (!filterTypesLower.includes('all') && !filterTypesLower.includes(typeLower)) {
+            return false;
+        }
+
+        // Status Filter
+        if (filters.status === 'incomplete' && task.achieved) {
+            return false;
+        }
+        if (filters.status === 'completed' && !task.achieved) {
+            return false;
+        }
+
+        // Boss Search (already filtered by boss, but could search task name/desc here)
+        const searchTermLower = filters.bossSearch.toLowerCase();
+        if (searchTermLower &&
+            !task.name.toLowerCase().includes(searchTermLower) &&
+            !task.description.toLowerCase().includes(searchTermLower) &&
+            !task.boss.toLowerCase().includes(searchTermLower)) // Include boss name search just in case
+             {
+            return false;
+        }
+
+        return true; // Task passes all filters
+    });
+}
+
+// --- NEW HELPER: Update filter buttons UI ---
+function updateFilterButtonsUI(filters) {
+    // Tiers
+    const tierContainer = document.getElementById('ca-tier-filters');
+    if (tierContainer) {
+        tierContainer.querySelectorAll('.filter-button').forEach(btn => {
+            const value = btn.dataset.filterValue;
+            btn.classList.toggle('active', filters.tiers.includes(value));
+        });
+    }
+    // Types
+    const typeContainer = document.getElementById('ca-type-filters');
+     if (typeContainer) {
+        typeContainer.querySelectorAll('.filter-button').forEach(btn => {
+            const value = btn.dataset.filterValue;
+            btn.classList.toggle('active', filters.types.includes(value));
+        });
+    }
+    // Status
+    const statusContainer = document.getElementById('ca-status-filters');
+     if (statusContainer) {
+        statusContainer.querySelectorAll('.filter-button').forEach(btn => {
+            const value = btn.dataset.filterValue;
+            btn.classList.toggle('active', filters.status === value);
+        });
+    }
+    // Search input value is already handled by the input itself
+}
 
 /**
  * Populates the skill summary table in the DOM.
@@ -911,7 +1026,7 @@ export function updateCompleteAllCheckboxState(diaryKey, difficulty) {
  * @param {string} viewIdToShow - The ID of the view container div to show.
  */
 export function showView(viewIdToShow) {
-    const views = document.querySelectorAll('#dashboard-view, #goals-view, #gear-view, #diaries-view');
+    const views = document.querySelectorAll('#dashboard-view, #goals-view, #gear-view, #diaries-view, #combat-tasks-view');
     const viewButtons = document.querySelectorAll('.view-navigation .filter-button');
     const skillModalSaveButton = document.getElementById('save-skills');
     const skillModalResetButton = document.getElementById('reset-skills');
@@ -1086,6 +1201,7 @@ export function updateDashboardSummaryProgress() {
     const milestoneContainer = document.getElementById('summary-milestones');
     const gearContainer = document.getElementById('summary-gear');
     const diaryContainer = document.getElementById('summary-diaries');
+    const caContainer = document.getElementById('summary-combat-tasks');
 
     // Exit if any container is missing
     if (!milestoneContainer || !gearContainer || !diaryContainer) {
@@ -1136,6 +1252,39 @@ export function updateDashboardSummaryProgress() {
         Elite: { color: '#9C27B0', percentage: 0 }
     };
 
+    // --- COMBAT ACHIEVEMENT SUMMARY UPDATE ---
+    if (caContainer) {
+        caContainer.innerHTML = '';
+        const caTierOrder = ["easy", "medium", "hard", "elite", "master", "grandmaster"];
+        const caDefaultColors = { easy: "#a0d2db", medium: "#a8d8a0", hard: "#f8c070", elite: "#f5a7a7", master: "#d7b0f8", grandmaster: "#cccccc"}; // Default colors
+
+        caTierOrder.forEach(tierKey => {
+             let totalTasks = 0;
+             let completedTasks = 0;
+
+             // Calculate totals for this tier across all bosses
+             for (const bossKey in combatAchievementsData) {
+                  combatAchievementsData[bossKey]?.tasks?.forEach(task => {
+                       if (task.tier === tierKey) {
+                            totalTasks++;
+                            if (task.achieved) {
+                                 completedTasks++;
+                            }
+                       }
+                  });
+             }
+
+             if (totalTasks > 0) {
+                  const percentage = Math.floor((completedTasks / totalTasks) * 100);
+                  // Use color from data if defined, else default
+                  const color = combatAchievementsData[tierKey]?.color || caDefaultColors[tierKey];
+                  const tierName = combatAchievementsData[tierKey]?.name || (tierKey.charAt(0).toUpperCase() + tierKey.slice(1) + " Tasks");
+                  caContainer.appendChild(createSummaryRow(tierName, percentage, color));
+             }
+        });
+   }
+   // --- END CA SUMMARY ---
+
     // Use the module-scoped variable holding the loaded diary progress
     const savedProgress = loadedGlobalDiaryProgress;
 
@@ -1164,6 +1313,202 @@ export function updateDashboardSummaryProgress() {
 
 } // End of updateDashboardSummaryProgress
 
+/**
+ * Populates the Combat Achievements view: creates collapsible boss sections & tasks based on current filters.
+ */
+export function populateCombatTasks() {
+    const caGrid = document.querySelector('#combat-tasks-view .combat-tasks-grid');
+    if (!caGrid) {
+        console.error("Combat Achievements grid container not found!");
+        return;
+    }
+    caGrid.innerHTML = ''; // Clear previous content
+
+    // --- Get Current Filters from module state ---
+    const filters = getCurrentCAFilters();
+    // console.log("Populating Combat Tasks using filters:", filters); // Debug log
+
+    // --- Update filter button appearance ---
+    updateFilterButtonsUI(filters); // Assumes this function exists in ui.js
+
+    // --- Sort Bosses Alphabetically ---
+    const sortedBossKeys = Object.keys(combatAchievementsData).sort((a, b) => {
+         if (a === 'n_a') return 1; // Put "N/A" group last
+         if (b === 'n_a') return -1;
+         // Make sure name property exists before comparing
+         const nameA = combatAchievementsData[a]?.name || a;
+         const nameB = combatAchievementsData[b]?.name || b;
+         return nameA.localeCompare(nameB);
+    });
+
+    let bossesDisplayed = 0; // Count how many boss sections are actually shown
+
+    // --- Loop Through Bosses ---
+    sortedBossKeys.forEach(bossKey => {
+        const bossData = combatAchievementsData[bossKey];
+        // Ensure bossData and its tasks exist before proceeding
+        if (!bossData || !bossData.tasks || !Array.isArray(bossData.tasks)) {
+            // console.warn(`Skipping boss key "${bossKey}": Invalid data structure.`);
+            return;
+        }
+
+        // --- Filter Tasks for this Boss ---
+        const filteredTasks = filterBossTasks(bossData.tasks, filters);
+
+        // --- Only Render Boss Section if it has tasks matching filters ---
+        if (filteredTasks.length > 0) {
+            bossesDisplayed++;
+            const bossContainer = document.createElement('div');
+            bossContainer.className = 'ca-boss-container container'; // Reuse container style
+            bossContainer.id = `ca-boss-${bossKey}`;
+
+            // --- Create Boss Header (Make it Clickable) ---
+            const bossHeader = document.createElement('div');
+            bossHeader.className = 'ca-boss-header'; // Add style for this class
+            bossHeader.style.cursor = 'pointer';
+            bossHeader.title = `Click to toggle ${bossData.name} tasks`;
+
+            // Calculate progress based on FILTERED tasks shown
+            const completedFilteredTasks = filteredTasks.filter(t => t.achieved).length;
+            const totalFilteredPoints = filteredTasks.reduce((sum, t) => sum + (t.points || 0), 0);
+            const completedFilteredPoints = filteredTasks.reduce((sum, t) => sum + (t.achieved ? (t.points || 0) : 0), 0);
+            // Preserve collapsed state if possible (using class on container)
+            const startCollapsed = bossContainer.classList.contains('collapsed');
+
+            bossHeader.innerHTML = `
+                <h3>${bossData.name}</h3>
+                <span class="ca-boss-progress">(${completedFilteredTasks} / ${filteredTasks.length} tasks)</span>
+                <span class="ca-boss-points">(${completedFilteredPoints} / ${totalFilteredPoints} pts)</span>
+                <span class="ca-toggle-icon">${startCollapsed ? '▼' : '▲'}</span>
+            `;
+            bossContainer.appendChild(bossHeader);
+            bossHeader.addEventListener('click', toggleBossSection); // Attach toggle handler
+
+            // --- Create Task List ---
+            const taskList = document.createElement('div');
+            taskList.className = 'tasks ca-task-list';
+            taskList.style.display = startCollapsed ? 'none' : 'block'; // Set initial display
+
+            // Sort filtered tasks by points (desc), then name (asc)
+            filteredTasks.sort((a, b) => (b.points || 0) - (a.points || 0) || a.name.localeCompare(b.name));
+
+            filteredTasks.forEach((task, index) => {
+                const taskDiv = document.createElement('div');
+                taskDiv.className = 'task'; // Use shared task styling
+                if (task.achieved) taskDiv.classList.add('task-completed');
+
+                // Generate HTML components for the task row
+                const wikiLinkHtml = task.wikiLink ? `<span class="ca-task-wiki"><a href="${task.wikiLink}" target="_blank" title="Open Wiki Page">[Wiki]</a></span>` : '';
+                const pointsHtml = task.points ? `<span class="ca-task-points">${task.points}pt${task.points > 1 ? 's' : ''}</span>` : '';
+                // Use task-requirements style for type for consistency, or create ca-task-type
+                const typeHtml = task.type ? `<span class="task-requirements">(${task.type})</span>` : '';
+                // Unique ID for label/checkbox association
+                const checkboxId = `ca-${bossKey}-${task.tier}-${index}`; // Include tier for potential uniqueness
+
+                taskDiv.innerHTML = `
+                    <input type="checkbox" class="ca-task-checkbox" id="${checkboxId}"
+                           data-boss-key="${bossKey}"
+                           data-task-name="${task.name}" /* Use name for identification */
+                           ${task.achieved ? 'checked' : ''}>
+                    <label class="task-description" for="${checkboxId}" title="${task.description || ''}">
+                        ${task.name}
+                        ${typeHtml}
+                    </label>
+                    ${pointsHtml}
+                    ${wikiLinkHtml}
+                `;
+
+                // Attach the change handler to the checkbox
+                taskDiv.querySelector('.ca-task-checkbox').addEventListener('change', handleCombatTaskChange);
+                taskList.appendChild(taskDiv);
+            }); // End forEach task
+
+            bossContainer.appendChild(taskList);
+            caGrid.appendChild(bossContainer);
+        } // End if(filteredTasks.length > 0)
+    }); // End forEach bossKey
+
+     // Display a message if no bosses/tasks match filters
+     if (bossesDisplayed === 0) {
+          caGrid.innerHTML = '<p style="text-align: center; color: var(--text-secondary); grid-column: 1 / -1;">No combat achievements match the current filters.</p>'; // Span across grid columns
+     }
+
+    updateCumulativeCombatProgress(); // Update overall points/tier tracker
+    // console.log("Combat Achievement sections populated/re-populated.");
+}
+
+/**
+ * Updates the progress bar, percentage, and points for a specific CA tier.
+ */
+export function updateCombatTierProgress(tierKey) {
+    const tierData = combatAchievementsData[tierKey];
+    if (!tierData || !tierData.tasks) return;
+
+    const container = document.getElementById(`ca-${tierKey}-container`);
+    if (!container) return;
+
+    const progressBar = container.querySelector(`#ca-${tierKey}-progress-bar`);
+    const percentageSpan = container.querySelector(`#ca-${tierKey}-percentage`);
+    const pointsSpan = container.querySelector(`#ca-${tierKey}-points`); // Points display within tier header
+
+    const totalTasks = tierData.tasks.length;
+    if (totalTasks === 0) {
+        if (progressBar) progressBar.style.width = '0%';
+        if (percentageSpan) percentageSpan.textContent = '0%';
+        if (pointsSpan) pointsSpan.textContent = '0';
+        return;
+    }
+
+    let completedTasks = 0;
+    let pointsEarned = 0;
+    tierData.tasks.forEach(task => {
+        if (task.achieved) {
+            completedTasks++;
+            pointsEarned += task.points || 0;
+        }
+    });
+
+    const percentage = Math.floor((completedTasks / totalTasks) * 100);
+
+    // Update DOM
+    if (progressBar) progressBar.style.width = `${percentage}%`;
+    if (percentageSpan) percentageSpan.textContent = `${percentage}%`;
+    if (pointsSpan) pointsSpan.textContent = pointsEarned;
+}
+
+/**
+ * Updates the cumulative CA progress display (Total Points, Current Tier).
+ * Calculates based on the complete combatAchievementsData object.
+ */
+export function updateCumulativeCombatProgress() {
+    const totalPointsSpan = document.getElementById('ca-total-points');
+    const currentTierSpan = document.getElementById('ca-current-tier');
+    if (!totalPointsSpan || !currentTierSpan) return;
+
+    let grandTotalPoints = 0;
+    // Iterate through the BOSS-keyed structure
+    for (const bossKey in combatAchievementsData) {
+        combatAchievementsData[bossKey]?.tasks?.forEach(task => {
+            if (task.achieved) {
+                grandTotalPoints += task.points || 0;
+            }
+        });
+    }
+
+    // --- Determine Tier based on Points (Update with official thresholds) ---
+    let currentTierName = "None";
+    // Example thresholds - REPLACE WITH ACCURATE VALUES FROM WIKI/GAME
+    if (grandTotalPoints >= 1153) currentTierName = "Grandmaster";
+    else if (grandTotalPoints >= 718) currentTierName = "Master";
+    else if (grandTotalPoints >= 405) currentTierName = "Elite";
+    else if (grandTotalPoints >= 178) currentTierName = "Hard";
+    else if (grandTotalPoints >= 58) currentTierName = "Medium";
+    else if (grandTotalPoints >= 8) currentTierName = "Easy";
+    // ----------------------------------------------------------------------
+
+    totalPointsSpan.textContent = grandTotalPoints;
+    currentTierSpan.textContent = currentTierName;
+}
 
 // --- Global listeners for Skill Editor Rate Inputs (Can stay here as they relate to UI created here) ---
 document.addEventListener('focusin', (event) => {

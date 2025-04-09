@@ -786,6 +786,104 @@ body.dark-mode .skill-editor-item input { background-color: var(--dm-bg-darkest)
 body.dark-mode .skill-editor-item label.rate-label { color: var(--dm-text-secondary); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 25px; }
 
+/* style.css */
+
+/* Grid layout for CA tiers */
+.combat-tasks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 30px;
+}
+
+/* Style for the overall points/tier display */
+.ca-points-display, .ca-tier-display {
+    font-size: 1em;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-left: auto; /* Push to the right */
+    padding-left: 20px;
+}
+.ca-points-display span, .ca-tier-display span {
+    color: var(--accent-gold-dark); /* Or theme variable */
+}
+
+/* Dark mode for points/tier display */
+body.dark-mode .ca-points-display,
+body.dark-mode .ca-tier-display {
+    color: var(--dm-text-primary);
+}
+ body.dark-mode .ca-points-display span,
+ body.dark-mode .ca-tier-display span {
+    color: var(--dm-accent-gold);
+}
+
+/* Style for individual CA tasks (can reuse .task if desired) */
+.ca-task-list .task {
+    /* Uses existing .task styles: flex, align-items, gap */
+    padding: 6px 5px;
+    margin-bottom: 4px;
+}
+
+/* Optional: Specific styling for CA task components */
+.ca-task-points, .ca-task-wiki {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    margin-left: auto; /* Push right */
+    padding-left: 10px;
+    flex-shrink: 0;
+}
+ .ca-task-wiki a { /* Inherits link styles */ }
+ .ca-task-points { font-weight: 600; }
+
+ body.dark-mode .ca-task-points, body.dark-mode .ca-task-wiki {
+     color: var(--dm-text-secondary);
+ }
+
+ .ca-filters h4 {
+    margin-bottom: 15px;
+    /* Inherits base h4 styles */
+}
+.filter-row {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 10px;
+    flex-wrap: wrap; /* Allow wrapping if too many buttons */
+}
+.filter-row label {
+    font-weight: 600;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+body.dark-mode .filter-row label {
+    color: var(--dm-text-secondary);
+}
+.filter-options {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.filter-row input[type="text"] {
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border-medium);
+    background-color: var(--bg-parchment); /* Match theme */
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    flex-grow: 1; /* Allow search to take space */
+    min-width: 150px;
+}
+ body.dark-mode .filter-row input[type="text"] {
+    border-color: var(--dm-border-medium);
+    background-color: var(--dm-bg-dark); /* Match theme */
+    color: var(--dm-text-primary);
+}
+/* Filter button styling inherited from general .filter-button */
+/* Ensure active state is distinct */
+.filter-options .filter-button.active {
+     /* Uses existing .active style - maybe make it slightly different if needed */
+     /* e.g., outline: 2px solid var(--accent-gold); */
+}
 
 /* --- Tooltips --- */
 /* Original styles restored with theme vars */

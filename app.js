@@ -3,9 +3,9 @@ import { currentUsername } from './data.js';
 // Import load functions from storage
 import { loadCoreDataFromStorage, saveProgressToLocalStorage, saveSkillLevelsFromModal, resetSkillLevels, exportData, handleFileImport } from './storage.js';
 // Import UI functions needed for setup or direct call
-import { populateDiaries, populateSkillSummary, openSkillEditor, closeSkillEditor, showView, populateMiscellaneousGoals, populateMilestoneGoals, populateGearProgression, updateCombatLevelDisplay, updateOverallStats, updateGlobalProgress, updateDashboardSummaryProgress, applyLoadedDiaryProgress, updateCumulativeGearProgress, updateCumulativeGoalProgress, updateGearStageCost } from './ui.js';
+import { populateDiaries, populateSkillSummary, openSkillEditor, closeSkillEditor, showView, populateMiscellaneousGoals, populateMilestoneGoals, populateGearProgression, updateCombatLevelDisplay, updateOverallStats, updateGlobalProgress, updateDashboardSummaryProgress, applyLoadedDiaryProgress, updateCumulativeGearProgress, updateCumulativeGoalProgress, updateGearStageCost, populateCombatTasks,updateCumulativeCombatProgress } from './ui.js';
 // Import Event handlers needed for direct listener setup
-import { handleViewNavigation, handleSkillNameClick, handleMiscGoalDescKey, addMiscellaneousGoal, toggleDiaryContent as toggleDiaryHandler, handleDifficultyTabClick } from './events.js'; // Import specific handlers needed here
+import { handleViewNavigation, handleSkillNameClick, handleMiscGoalDescKey, addMiscellaneousGoal, toggleDiaryContent as toggleDiaryHandler, handleDifficultyTabClick, handleCombatTaskChange, handleCATierFilter, handleCATypeFilter, handleCAStatusFilter, handleCABossSearch } from './events.js'; // Import specific handlers needed here
 // Import Hiscores function
 import { fetchHiscoresData } from './hiscores.js';
 
@@ -25,7 +25,29 @@ function setupViewNavigation() {
     if (document.getElementById(lastView)) showView(lastView); else showView('dashboard-view');
 }
 
+// --- NEW: Setup CA Filters ---
+function setupCAFilters() {
+    const tierFilters = document.getElementById('ca-tier-filters');
+    const typeFilters = document.getElementById('ca-type-filters');
+    const statusFilters = document.getElementById('ca-status-filters');
+    const bossSearch = document.getElementById('ca-boss-search');
 
+    // Use event delegation on the containers
+    if (tierFilters) {
+        tierFilters.addEventListener('click', handleCATierFilter);
+    }
+    if (typeFilters) {
+        typeFilters.addEventListener('click', handleCATypeFilter);
+    }
+    if (statusFilters) {
+        statusFilters.addEventListener('click', handleCAStatusFilter);
+    }
+
+    // Use input event for search for real-time filtering
+    if (bossSearch) {
+        bossSearch.addEventListener('input', handleCABossSearch);
+    }
+}
 
 function setupSkillEditor() {
     document.getElementById('edit-skills-button')?.addEventListener('click', openSkillEditor);
@@ -153,7 +175,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     populateDiaries();
     populateMiscellaneousGoals();
     populateMilestoneGoals();
-    populateGearProgression(); // <-- Now uses data potentially updated with prices
+    populateGearProgression();
+    populateCombatTasks(); // <-- Add this call
     console.log("Base UI Populated.");
 
     // --- 4. Apply Loaded Diary Progress to the DOM ---
@@ -165,7 +188,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateOverallStats();
     updateCumulativeGoalProgress();
     updateCumulativeGearProgress();
-    // updateGearStageCost(); // Will be called within populateGearProgression initially
+    updateCumulativeCombatProgress(); // <-- Add this call
+    updateDashboardSummaryProgress();
     const sortButtons = document.querySelectorAll('.sort-buttons .filter-button');
 sortButtons.forEach(btn => btn.classList.remove('active'));
 document.querySelector('.sort-buttons .filter-button[data-sort="level"]')?.classList.add('active');
@@ -204,6 +228,9 @@ if (diariesGrid) {
 // -------------------------------------------
 
 setupSaveButton(); // This button now saves the merged diary state
+setupAddGoalButton();
+setupCAFilters();
+setupSaveButton();
 setupAddGoalButton();
 setupSkillEditor();
 setupImportExport();

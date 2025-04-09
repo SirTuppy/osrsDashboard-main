@@ -37,6 +37,7 @@
                         <button class="filter-button" data-view="diaries-view">Diaries</button> <!-- MOVED/ADDED HERE -->
                         <button class="filter-button" data-view="goals-view">Milestone Goals</button>
                         <button class="filter-button" data-view="gear-view">Gear Progression</button>
+                        <button class="filter-button" data-view="combat-tasks-view">Combat Tasks</button>
                     </div>
 
                 </div> <!-- End of stats-header-content -->
@@ -67,15 +68,15 @@
                         <div class="summary-category" id="summary-gear">
                             <!-- Rows will be added by JS -->
                         </div>
-                        <h4>BIS Gear Progression</h4>
-                         <div class="summary-category" id="summary-bis-gear">
-                             <p style="color: var(--text-secondary); font-size: 0.9em; text-align: center; margin: 10px 0;">(Not Yet Implemented)</p>
-                            <!-- Rows will be added by JS when implemented -->
-                         </div>
                         <h4>Achievement Diary Progression</h4>
                         <div class="summary-category" id="summary-diaries">
                             <!-- Rows will be added by JS -->
                         </div>
+                        <h4>Combat Achievement Progression</h4>
+<div class="summary-category" id="summary-combat-tasks">
+    <!-- Populated by JS -->
+</div>
+
                     </div>
                     <!-- END Dashboard Summary Section -->
 
@@ -168,7 +169,76 @@
             </div>
         </div> <!-- End of #gear-view -->
 
-    </div> <!-- End of .dashboard -->
+    <!-- !!! NEW COMBAT ACHIEVEMENTS VIEW !!! -->
+    <div id="combat-tasks-view" style="display: none;">
+        <h2>Combat Achievements</h2>
+
+        <!-- Overall Progress Tracker -->
+        <div id="cumulative-ca-tracker" class="container" style="margin-bottom: 25px; padding: 15px 20px;">
+            <div class="goal-tier-header"> <!-- Reusing goal styles for consistency -->
+                <h3 style="color: var(--text-accent);">Overall Progress</h3>
+                 <!-- Points Display -->
+                 <span class="ca-points-display">Points: <span id="ca-total-points">0</span></span>
+                 <!-- Tier Display -->
+                 <span class="ca-tier-display">Current Tier: <span id="ca-current-tier">None</span></span>
+                 <!-- Optional Progress Bar based on points? -->
+                 <div class="goal-progress-container">
+                     <div id="cumulative-ca-progress-bar" class="goal-progress-bar" style="background-color: var(--accent-grey-muted);"></div>
+                 </div>
+                 <span id="cumulative-ca-percentage" class="goal-percentage">0%</span>
+            </div>
+        </div>
+
+        <!-- !!! ADD FILTER CONTROLS HERE !!! -->
+    <div class="ca-filters container" style="margin-bottom: 25px; padding: 15px;">
+        <h4>Filters</h4>
+        <div class="filter-row">
+            <label>Tiers:</label>
+            <div class="filter-options" id="ca-tier-filters">
+                <button class="filter-button active" data-filter-type="tier" data-filter-value="all">All</button>
+                <button class="filter-button" data-filter-type="tier" data-filter-value="easy">Easy</button>
+                <button class="filter-button" data-filter-type="tier" data-filter-value="medium">Med</button>
+                <button class="filter-button" data-filter-type="tier" data-filter-value="hard">Hard</button>
+                <button class="filter-button" data-filter-type="tier" data-filter-value="elite">Elite</button>
+                <button class="filter-button" data-filter-type="tier" data-filter-value="master">Master</button>
+                <button class="filter-button" data-filter-type="tier" data-filter-value="grandmaster">GM</button>
+            </div>
+        </div>
+         <div class="filter-row">
+             <label>Types:</label>
+             <div class="filter-options" id="ca-type-filters">
+                 <button class="filter-button active" data-filter-type="type" data-filter-value="all">All</button>
+                 <button class="filter-button" data-filter-type="type" data-filter-value="Kill Count">KC</button>
+                 <button class="filter-button" data-filter-type="type" data-filter-value="Mechanical">Mech</button>
+                 <button class="filter-button" data-filter-type="type" data-filter-value="Perfection">Perf</button>
+                 <button class="filter-button" data-filter-type="type" data-filter-value="Restriction">Res</button>
+                 <button class="filter-button" data-filter-type="type" data-filter-value="Speed">Speed</button>
+                 <button class="filter-button" data-filter-type="type" data-filter-value="Stamina">Stam</button>
+             </div>
+         </div>
+        <div class="filter-row">
+            <label>Status:</label>
+            <div class="filter-options" id="ca-status-filters">
+                <button class="filter-button active" data-filter-type="status" data-filter-value="all">All</button>
+                <button class="filter-button" data-filter-type="status" data-filter-value="incomplete">Incomplete</button>
+                <button class="filter-button" data-filter-type="status" data-filter-value="completed">Completed</button>
+            </div>
+        </div>
+         <div class="filter-row">
+             <label for="ca-boss-search">Boss Search:</label>
+             <input type="text" id="ca-boss-search" placeholder="Filter by boss/task name...">
+         </div>
+    </div>
+    <!-- !!! END FILTER CONTROLS !!! -->
+
+        <!-- Grid for Tiers/Tasks -->
+        <div class="combat-tasks-grid">
+            <!-- bosses populated here -->
+        </div>
+    </div> <!-- End of #combat-tasks-view -->
+
+</div> <!-- End of .dashboard -->
+
 
     <!-- Skill Editor Modal (Kept Global at the end) -->
     <div id="skill-editor-modal" class="modal">

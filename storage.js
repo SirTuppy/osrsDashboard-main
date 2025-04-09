@@ -10,7 +10,8 @@ import {
     milestoneGoalsData,
     gearProgressionData,
     DEFAULT_SKILL_RATES,
-    customSkillXPRates // Note: This is a 'let' export, we can modify it
+    customSkillXPRates,
+    combatAchievementsData
 } from './data.js';
 
 // Import calculation functions needed for data processing during load/save
@@ -263,6 +264,50 @@ export function resetSkillLevels() {
 }
 
 
+// --- NEW COMBAT ACHIEVEMENT STORAGE ---
+
+/**
+ * Saves the achieved status of Combat Achievement tasks (boss-keyed) to localStorage.
+ */
+export function saveCombatAchievements() {
+    const saveData = {};
+    for (const bossKey in combatAchievementsData) {
+        if (combatAchievementsData[bossKey]?.tasks) {
+            // Save only the array of booleans for achievement status for this boss
+            saveData[bossKey] = combatAchievementsData[bossKey].tasks.map(task => task.achieved);
+        }
+    }
+    localStorage.setItem('combatAchievementsProgress', JSON.stringify(saveData));
+    // console.log("Combat Achievement progress saved.");
+}
+
+/**
+ * Loads Combat Achievement progress (boss-keyed) from localStorage.
+ */
+export function loadCombatAchievements() {
+    const savedProgress = localStorage.getItem('combatAchievementsProgress');
+    if (savedProgress) {
+        try {
+            const loadedData = JSON.parse(savedProgress); // Should be { boss_key: [true, false, ...], ... }
+            for (const bossKey in loadedData) {
+                // Update the 'achieved' status in the imported data object
+                if (combatAchievementsData[bossKey]?.tasks && Array.isArray(loadedData[bossKey])) {
+                    combatAchievementsData[bossKey].tasks.forEach((task, index) => {
+                        // Ensure loaded data index exists before assigning
+                        if (loadedData[bossKey][index] !== undefined) {
+                            task.achieved = loadedData[bossKey][index];
+                        } else {
+                            // Handle cases where saved data might have fewer entries than current data
+                            // task.achieved = false; // Optionally reset if missing
+                        }
+                    });
+                }
+            }
+            console.log("Combat Achievement progress loaded into data state.");
+        } catch (e) { /* ... error handling ... */ }
+    }
+}
+
 // --- Miscellaneous Goals ---
 
 /**
@@ -499,6 +544,7 @@ export async function loadCoreDataFromStorage() { // Renamed function
     // 1. Load Skills/Rates first
     loadSkillLevels();       // Loads into skillRequirements array
     loadCustomXPRates();     // Loads into customSkillXPRates and skillRequirements
+    loadCombatAchievements(); // Loads into combatAchievementsData
 
     // 2. Load Diary checkbox states FROM STORAGE (but don't apply yet)
     const savedDiaryProgress = localStorage.getItem('diaryProgress');
@@ -550,6 +596,7 @@ export function getCurrentDashboardData() {
         gearProgressionState: JSON.parse(localStorage.getItem('gearProgressionState') || '{}'),
         skillLevels: JSON.parse(localStorage.getItem('skillLevels') || '[]'),
         customSkillXPRates: JSON.parse(localStorage.getItem('customSkillXPRates') || '{}'),
+        combatAchievementsProgress: JSON.parse(localStorage.getItem('combatAchievementsProgress') || '{}'),
         rsUsername: localStorage.getItem('rsUsername') || '',
         activeView: localStorage.getItem('activeView') || 'dashboard-view'
     };
@@ -631,6 +678,7 @@ export function handleFileImport(event) {
                 if(importedData.customSkillXPRates !== undefined) localStorage.setItem('customSkillXPRates', JSON.stringify(importedData.customSkillXPRates));
                 if(importedData.rsUsername !== undefined) localStorage.setItem('rsUsername', importedData.rsUsername);
                 if(importedData.activeView !== undefined) localStorage.setItem('activeView', importedData.activeView);
+                if(importedData.combatAchievementsProgress !== undefined) localStorage.setItem('combatAchievementsProgress', JSON.stringify(importedData.combatAchievementsProgress)); 
 
                 console.log('Data imported successfully to localStorage.');
                 alert('Data imported successfully! Reloading dashboard...');
