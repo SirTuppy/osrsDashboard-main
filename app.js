@@ -1,221 +1,252 @@
-// app.js - TOP OF FILE
-import { currentUsername } from './data.js';
-// Import load functions from storage
-import { loadCoreDataFromStorage, saveProgressToLocalStorage, saveSkillLevelsFromModal, resetSkillLevels, exportData, handleFileImport } from './storage.js';
-// Import UI functions needed for setup or direct call
-import { populateDiaries, populateSkillSummary, openSkillEditor, closeSkillEditor, showView, populateMiscellaneousGoals, populateMilestoneGoals, populateGearProgression, updateCombatLevelDisplay, updateOverallStats, updateGlobalProgress, updateDashboardSummaryProgress, applyLoadedDiaryProgress, updateCumulativeGearProgress, updateCumulativeGoalProgress, updateGearStageCost, populateCombatTasks,updateCumulativeCombatProgress } from './ui.js';
-// Import Event handlers needed for direct listener setup
-import { handleViewNavigation, handleSkillNameClick, handleMiscGoalDescKey, addMiscellaneousGoal, toggleDiaryContent as toggleDiaryHandler, handleDifficultyTabClick, handleCombatTaskChange, handleCATierFilter, handleCATypeFilter, handleCAStatusFilter, handleCABossSearch } from './events.js'; // Import specific handlers needed here
-// Import Hiscores function
+// app.js - Main application entry point
+
+// --- Core Data Imports ---
+import {
+    currentUsername, // Example: Used for default username
+    customSkillXPRates // Needed for indicator logic
+} from './data.js';
+
+// --- Storage Function Imports ---
+import {
+    loadCoreDataFromStorage, saveSkillLevelsFromModal, resetSkillLevels,
+    exportData, handleFileImport
+} from './storage.js';
+
+// --- UI Function Imports ---
+import {
+    populateDiaries, populateSkillSummary, openSkillEditor, closeSkillEditor, showView,
+    populateMiscellaneousGoals, populateMilestoneGoals, populateGearProgression,
+    updateCombatLevelDisplay, updateOverallStats, updateCumulativeGoalProgress,
+    updateCumulativeGearProgress, updateDashboardSummaryProgress, populateCombatTasks,
+    updateCumulativeCombatProgress, updateGearStageCost,
+    updateAllDiarySkillReqs,
+    populateQuestsView // <-- ADDED Quest View Population
+} from './ui.js';
+
+// --- Event Handler Imports ---
+import {
+    handleViewNavigation, handleSkillNameClick, handleMiscGoalDescKey, addMiscellaneousGoal,
+    toggleDiaryContent as toggleDiaryHandler, handleDifficultyTabClick, handleCATierFilter,
+    handleCATypeFilter, handleCAStatusFilter, handleCABossSearch,
+    handleQuestCompletionChange // <-- ADDED Quest Handler (even if attached in UI)
+    // Other handlers attached dynamically in ui.js
+} from './events.js';
+
+// --- API/Calculation Function Imports ---
 import { fetchHiscoresData } from './hiscores.js';
+import { initializeAndUpdatePrices } from './priceFetcher.js';
 
-import { initializeAndUpdatePrices } from './priceFetcher.js'; // <-- Import fetch function
-
+// --- Theme Toggle Setup ---
 const themeToggleButton = document.getElementById('theme-toggle-button');
 const currentTheme = localStorage.getItem('theme');
-const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches; // Check OS preference
+const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-// --- Setup Functions (Defined here for clarity, call imported handlers) ---
-function setupViewNavigation() {
-    const navContainer = document.querySelector('.view-navigation');
-    if(navContainer) navContainer.addEventListener('click', handleViewNavigation); // Use imported handler
+function applyTheme(theme) {
+    if (theme === 'dark') {
+        document.body.classList.add('dark-mode');
+        if (themeToggleButton) themeToggleButton.textContent = '☀️';
+        localStorage.setItem('theme', 'dark');
+    } else {
+        document.body.classList.remove('dark-mode');
+        if (themeToggleButton) themeToggleButton.textContent = '🌙';
+        localStorage.setItem('theme', 'light');
+    }
+}
+if (currentTheme) applyTheme(currentTheme);
+else if (prefersDark) applyTheme('dark');
+else applyTheme('light');
 
-    // Initial view load
-    const lastView = localStorage.getItem('activeView') || 'dashboard-view';
-    if (document.getElementById(lastView)) showView(lastView); else showView('dashboard-view');
+if (themeToggleButton) {
+    themeToggleButton.addEventListener('click', () => {
+        applyTheme(document.body.classList.contains('dark-mode') ? 'light' : 'dark');
+    });
 }
 
-// --- NEW: Setup CA Filters ---
+// --- Setup Functions (Attaching Event Listeners to Static Elements) ---
+
+function setupViewNavigation() {
+    const navContainer = document.querySelector('.view-navigation.header-view-navigation');
+    if (navContainer) navContainer.addEventListener('click', handleViewNavigation);
+    else console.error("View navigation container not found.");
+
+    const lastView = localStorage.getItem('activeView') || 'dashboard-view';
+    // Add 'quests-view' to the list of known views for validation
+    const knownViews = ['dashboard-view', 'diaries-view', 'goals-view', 'gear-view', 'combat-tasks-view', 'quests-view'];
+    if (knownViews.includes(lastView) && document.getElementById(lastView)) {
+        showView(lastView);
+    } else {
+        console.warn(`Saved view "${lastView}" not found or invalid, defaulting to dashboard.`);
+        showView('dashboard-view');
+    }
+}
+
 function setupCAFilters() {
-    const tierFilters = document.getElementById('ca-tier-filters');
-    const typeFilters = document.getElementById('ca-type-filters');
-    const statusFilters = document.getElementById('ca-status-filters');
+    const filtersContainer = document.querySelector('.ca-filters');
     const bossSearch = document.getElementById('ca-boss-search');
-
-    // Use event delegation on the containers
-    if (tierFilters) {
-        tierFilters.addEventListener('click', handleCATierFilter);
-    }
-    if (typeFilters) {
-        typeFilters.addEventListener('click', handleCATypeFilter);
-    }
-    if (statusFilters) {
-        statusFilters.addEventListener('click', handleCAStatusFilter);
-    }
-
-    // Use input event for search for real-time filtering
-    if (bossSearch) {
-        bossSearch.addEventListener('input', handleCABossSearch);
-    }
+    if (filtersContainer) {
+        filtersContainer.addEventListener('click', (event) => {
+            const button = event.target.closest('.filter-button[data-filter-type]');
+            if (button) {
+                const type = button.dataset.filterType;
+                if (type === 'tier') handleCATierFilter(event);
+                else if (type === 'type') handleCATypeFilter(event);
+                else if (type === 'status') handleCAStatusFilter(event);
+            }
+        });
+    } else console.warn("CA Filters container not found.");
+    if (bossSearch) bossSearch.addEventListener('input', handleCABossSearch);
+    else console.warn("CA Boss Search input not found.");
 }
 
 function setupSkillEditor() {
     document.getElementById('edit-skills-button')?.addEventListener('click', openSkillEditor);
-    document.querySelector('.modal-close')?.addEventListener('click', closeSkillEditor);
-    document.getElementById('save-skills')?.addEventListener('click', saveSkillLevelsFromModal);
-    document.getElementById('reset-skills')?.addEventListener('click', resetSkillLevels);
-    window.addEventListener('click', function(event) {
-        if (event.target === document.getElementById('skill-editor-modal')) {
+    document.querySelector('#skill-editor-modal .modal-close')?.addEventListener('click', closeSkillEditor);
+    window.addEventListener('click', (event) => {
+        if (event.target === document.getElementById('skill-editor-modal')) closeSkillEditor();
+    });
+    document.getElementById('save-skills')?.addEventListener('click', () => {
+        const changes = saveSkillLevelsFromModal();
+        if (changes.levelsChanged || changes.ratesChanged) {
+            populateSkillSummary(document.querySelector('.sort-buttons .filter-button.active')?.dataset.sort || 'level');
+            updateOverallStats();
+            updateAllDiarySkillReqs();
+            updateCombatLevelDisplay();
+            updateDashboardSummaryProgress();
+            document.getElementById('custom-rates-indicator').style.display = Object.keys(customSkillXPRates).length > 0 ? 'inline' : 'none';
+        }
+        closeSkillEditor();
+    });
+    document.getElementById('reset-skills')?.addEventListener('click', () => {
+        if (confirm("Are you sure you want to reset all skill levels and XP rates to default?")) {
+            resetSkillLevels();
+            populateSkillSummary(document.querySelector('.sort-buttons .filter-button.active')?.dataset.sort || 'level');
+            updateOverallStats();
+            updateAllDiarySkillReqs();
+            updateCombatLevelDisplay();
+            updateDashboardSummaryProgress();
+            document.getElementById('custom-rates-indicator').style.display = 'none';
             closeSkillEditor();
         }
     });
- }
+}
 
 function setupImportExport() {
     const importButton = document.getElementById('import-data-button');
     const exportButton = document.getElementById('export-data-button');
     const fileInput = document.getElementById('import-file-input');
-    exportButton?.addEventListener('click', exportData);
-    importButton?.addEventListener('click', () => fileInput?.click());
-    fileInput?.addEventListener('change', handleFileImport);
- }
+    if (exportButton) exportButton.addEventListener('click', exportData);
+    if (importButton && fileInput) {
+        importButton.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleFileImport);
+    }
+}
 
-// app.js - Inside setupHiscoresFetching
 function setupHiscoresFetching() {
     const fetchButton = document.getElementById('fetch-hiscores-button');
     const usernameElement = document.getElementById('player-name');
-    if(!fetchButton || !usernameElement) return;
-
-    // Read directly from storage on load
+    if (!fetchButton || !usernameElement) return;
     const savedUsername = localStorage.getItem('rsUsername');
-    usernameElement.textContent = savedUsername || 'sirtuppy'; // Use default if nothing saved
-
+    usernameElement.textContent = savedUsername || 'Enter Username';
     fetchButton.addEventListener('click', fetchHiscoresData);
-    usernameElement.addEventListener('keypress', (event) => {
-        if (event.key === 'Enter') { event.preventDefault(); usernameElement.blur(); fetchHiscoresData(); }
-    });
+    usernameElement.addEventListener('keypress', (event) => { if (event.key === 'Enter') { event.preventDefault(); usernameElement.blur(); } });
     usernameElement.addEventListener('blur', () => {
-         const newUsername = usernameElement.textContent.trim();
-         const currentSaved = localStorage.getItem('rsUsername') || 'sirtuppy';
-         if (newUsername !== currentSaved) { // Compare with current stored value
-             localStorage.setItem('rsUsername', newUsername); // Just save on blur
-             console.log("Username updated in localStorage:", newUsername);
-         }
-     });
-  }
-
+        const newUsername = usernameElement.textContent.trim();
+        const currentSaved = localStorage.getItem('rsUsername') || '';
+        if (newUsername && newUsername.toLowerCase() !== 'enter username' && newUsername !== currentSaved) {
+            localStorage.setItem('rsUsername', newUsername); console.log("Username updated:", newUsername);
+        } else if (!newUsername || newUsername.toLowerCase() === 'enter username') {
+            usernameElement.textContent = 'Enter Username';
+            if (currentSaved) { localStorage.removeItem('rsUsername'); console.log("Username cleared."); }
+        }
+    });
+}
 
 function setupAddGoalButton() {
-    document.getElementById('add-goal-button')?.addEventListener('click', addMiscellaneousGoal); // Use imported events function
+    document.getElementById('add-goal-button')?.addEventListener('click', addMiscellaneousGoal);
 }
 
 function setupSortAndSkillClickListeners() {
     const sortButtonsContainer = document.querySelector('.sort-buttons');
-    sortButtonsContainer?.addEventListener('click', (event) => {
-        if (event.target.tagName === 'BUTTON' && event.target.dataset.sort) {
-             sortButtonsContainer.querySelectorAll('.filter-button').forEach(btn => btn.classList.remove('active'));
-             event.target.classList.add('active');
-             populateSkillSummary(event.target.dataset.sort); // ui function
-         }
-    });
-    document.getElementById('skill-summary')?.addEventListener('click', handleSkillNameClick); // events function
-}
-
-// Function to apply the theme
-function applyTheme(theme) {
-    if (theme === 'dark') {
-        document.body.classList.add('dark-mode');
-        if (themeToggleButton) themeToggleButton.textContent = '☀️ Light Mode';
-        localStorage.setItem('theme', 'dark');
-    } else {
-        document.body.classList.remove('dark-mode');
-        if (themeToggleButton) themeToggleButton.textContent = '🌙 Dark Mode';
-        localStorage.setItem('theme', 'light');
+    const skillSummaryContainer = document.getElementById('skill-summary');
+    if (sortButtonsContainer) {
+        sortButtonsContainer.addEventListener('click', (event) => {
+            const button = event.target.closest('.filter-button[data-sort]');
+            if (button) {
+                sortButtonsContainer.querySelectorAll('.filter-button').forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                populateSkillSummary(button.dataset.sort);
+            }
+        });
     }
+    if (skillSummaryContainer) skillSummaryContainer.addEventListener('click', handleSkillNameClick);
 }
 
-// Apply the saved theme or default based on OS preference
-if (currentTheme) {
-    applyTheme(currentTheme);
-} else if (prefersDark) {
-    applyTheme('dark'); // Default to dark if OS prefers it and no setting saved
-} else {
-    applyTheme('light'); // Default to light otherwise
-}
-
-// Add event listener for the button
-if (themeToggleButton) {
-    themeToggleButton.addEventListener('click', () => {
-        // Check the current theme by looking at the body class
-        const newTheme = document.body.classList.contains('dark-mode') ? 'light' : 'dark';
-        applyTheme(newTheme);
-    });
-}
-
+// --- DOMContentLoaded - Main Initialization Sequence ---
 document.addEventListener('DOMContentLoaded', async () => {
     console.log("Initializing Dashboard...");
 
-    // --- 1. Load ALL Data State First ---
-    const loadedDiaryProgress = await loadCoreDataFromStorage();
+    // --- 1. Load ALL Data State ---
+    await loadCoreDataFromStorage();
     console.log("Core data loaded.");
 
-    // --- 2. Fetch Item Prices (Updates gearProgressionData) ---
-    await initializeAndUpdatePrices(); // <-- Add this call
-    console.log("Item prices fetched (if any).");
+    // --- 2. Fetch External Data ---
+    try {
+        await initializeAndUpdatePrices();
+        console.log("Item prices fetched and applied.");
+    } catch (error) { console.error("Failed to initialize item prices:", error); }
 
-    // --- 3. Populate UI Structure USING Loaded/Updated Data ---
+    // --- 3. Populate UI Structure ---
     populateDiaries();
     populateMiscellaneousGoals();
     populateMilestoneGoals();
     populateGearProgression();
-    populateCombatTasks(); // <-- Add this call
+    populateCombatTasks();
+    populateQuestsView(); // <-- POPULATE NEW QUEST VIEW
     console.log("Base UI Populated.");
 
-    // --- 4. Apply Loaded Diary Progress to the DOM ---
-    applyLoadedDiaryProgress(loadedDiaryProgress);
-    console.log("Applied loaded diary progress.");
-
-    // --- 5. Update Remaining UI Based on Final State ---
+    // --- 4. Update UI Displays Based on Final State ---
     updateCombatLevelDisplay();
     updateOverallStats();
     updateCumulativeGoalProgress();
     updateCumulativeGearProgress();
-    updateCumulativeCombatProgress(); // <-- Add this call
+    updateCumulativeCombatProgress();
     updateDashboardSummaryProgress();
-    const sortButtons = document.querySelectorAll('.sort-buttons .filter-button');
-sortButtons.forEach(btn => btn.classList.remove('active'));
-document.querySelector('.sort-buttons .filter-button[data-sort="level"]')?.classList.add('active');
-populateSkillSummary('level');
-    console.log("Final UI updates applied.");
+    const initialSort = 'level';
+    document.querySelectorAll('.sort-buttons .filter-button').forEach(btn => btn.classList.remove('active'));
+    document.querySelector(`.sort-buttons .filter-button[data-sort="${initialSort}"]`)?.classList.add('active');
+    populateSkillSummary(initialSort);
+    document.getElementById('custom-rates-indicator').style.display = Object.keys(customSkillXPRates).length > 0 ? 'inline' : 'none';
+    console.log("UI displays updated.");
 
-    // --- 5. Setup Event Listeners ---
-    setupViewNavigation();
-    // --- Set initial skill button state ---
-    const initialViewId = localStorage.getItem('activeView') || 'dashboard-view';
-    const enableSkillModalButtons = (initialViewId === 'dashboard-view');
-    const skillModalSaveButton = document.getElementById('save-skills');
-    const skillModalResetButton = document.getElementById('reset-skills');
-    if (skillModalSaveButton) skillModalSaveButton.disabled = !enableSkillModalButtons;
-    if (skillModalResetButton) skillModalResetButton.disabled = !enableSkillModalButtons;
-    
-    // --- Attach listeners to the NEW diary grid ---
-const diariesGrid = document.querySelector('#diaries-view .diaries-grid');
-if (diariesGrid) {
-    // Listener specifically for expanding/collapsing CARDS (clicks on .diary-header)
-    diariesGrid.addEventListener('click', (event) => {
-        // Only trigger toggleDiaryHandler if the click was inside a header
-        if (event.target.closest('.diary-header')) {
-            toggleDiaryHandler(event); // Pass the event to the handler
-        }
-    });
+    // --- 5. Setup Event Listeners for Static Elements ---
+    setupViewNavigation(); // Includes setting initial view
+    setupSkillEditor();
+    setupImportExport();
+    setupHiscoresFetching();
+    setupSortAndSkillClickListeners();
+    setupAddGoalButton();
+    setupCAFilters();
 
-    // Listener specifically for switching DIFFICULTY TABS (clicks on .diff-button)
-    diariesGrid.addEventListener('click', (event) => {
-         // Only trigger handleDifficultyTabClick if the click was inside a button
-         if (event.target.closest('.diff-button')) {
-             handleDifficultyTabClick(event); // Pass the event to the handler
-         }
-    });
-}
-// -------------------------------------------
+    // Diary Grid Event Delegation
+    const diariesGrid = document.querySelector('#diaries-view .diaries-grid');
+    if (diariesGrid) {
+        diariesGrid.addEventListener('click', (event) => {
+            if (event.target.closest('.diary-header')) toggleDiaryHandler(event);
+            else if (event.target.closest('.diff-button')) handleDifficultyTabClick(event);
+            // Individual task clicks handled by listeners attached during population
+        });
+    }
 
-setupAddGoalButton();
-setupCAFilters();
-setupAddGoalButton();
-setupSkillEditor();
-setupImportExport();
-setupHiscoresFetching();
-setupSortAndSkillClickListeners();
+    // Quest View Event Delegation (NEW - if needed, but currently attached directly)
+    // const questsView = document.getElementById('quests-view');
+    // if (questsView) {
+    //    questsView.addEventListener('change', (event) => {
+    //         if (event.target.classList.contains('quest-checkbox')) { // Use a specific class
+    //             handleQuestCompletionChange(event);
+    //         }
+    //     });
+    // }
+    // Note: For quests, attaching directly in populateQuestsView is also fine as the list isn't dynamically reloaded like diary difficulties.
 
-console.log("Dashboard Initialized.");
+    console.log("Dashboard Initialized.");
 });

@@ -28,6 +28,88 @@ export const skillRequirements = [
 ];
 
 export let customSkillXPRates = {}; // To store loaded custom rates
+export let diaryCompletionState = {};
+
+export const questUnlocksData = {
+    skills: {
+        name: "Skill Unlocks",
+        quests: [
+            { name: "Druidic Ritual", unlock: "Herblore", completed: false },
+            { name: "Rune Mysteries", unlock: "Runecraft", completed: false },
+            { name: "Tears of Guthix", unlock: "Weekly XP Minigame", completed: false },
+            { name: "Desert Treasure I", unlock: "Ancient Magicks", completed: false },
+            { name: "A Kingdom Divided", unlock: "Arceuus Spell Upgrades", completed: false },
+            { name: "Lunar Diplomacy", unlock: "Lunar Spellbook", completed: false },
+            { name: "Dream Mentor", unlock: "Misc Lunar Spells", completed: false },
+            { name: "King's Ransom", unlock: "Piety/Chivalry Prayers", completed: false },
+        ]
+    },
+    areas: {
+        name: "Area Unlocks",
+        quests: [
+            // { name: "Children of the Sun", unlock: "Varlamore (partial)", completed: false }, // Add when relevant
+            { name: "Priest In Peril", unlock: "Morytania", completed: false },
+            { name: "Bone Voyage", unlock: "Fossil Island", completed: false },
+            { name: "Throne of Miscellania", unlock: "Miscellania Kingdom", completed: false },
+            { name: "Regicide", unlock: "Tirannwn", completed: false },
+            { name: "Mourning's End Part I", unlock: "Lletya", completed: false },
+            { name: "Song of the Elves", unlock: "Prifddinas", completed: false },
+            { name: "Making Friends with My Arm", unlock: "Weiss", completed: false },
+            { name: "Sins of the Father", unlock: "Darkmeyer", completed: false },
+            { name: "Cabin Fever", unlock: "Mos Le'Harmless", completed: false },
+            // { name: "Perilous Moons", unlock: "Cam Torum / Neypotzli", completed: false }, // Add when relevant
+        ]
+    },
+    transport: {
+        name: "Transportation",
+        quests: [
+            { name: "Plague City", unlock: "Ardougne Teleport", completed: false },
+            { name: "Enlightened Journey", unlock: "Balloon Transport", completed: false },
+            { name: "Fairy Tale II (Start)", unlock: "Fairy Rings", completed: false },
+            { name: "Tree Gnome Village", unlock: "Spirit Trees", completed: false },
+            { name: "The Grand Tree", unlock: "Gnome Gliders", completed: false },
+            { name: "Ghosts Ahoy", unlock: "Ectophial", completed: false },
+            { name: "Watchtower", unlock: "Watchtower Teleport", completed: false },
+            { name: "A Taste of Hope", unlock: "Drakan's Medallion", completed: false },
+            { name: "Eadgar's Ruse", unlock: "Trollheim Teleport", completed: false },
+            { name: "Shilo Village", unlock: "Shilo Cart System", completed: false },
+            { name: "Client of Kourend", unlock: "Kourend Castle Teleport", completed: false },
+            // { name: "Twilight's Promise", unlock: "Quetzal Transport", completed: false }, // Add when relevant
+        ]
+    },
+    equipment: {
+        name: "Equipment Unlocks",
+        quests: [
+            { name: "The Great Brain Robbery", unlock: "Barrelchest Anchor", completed: false },
+            { name: "Dwarf Cannon", unlock: "Dwarf Multicannon", completed: false },
+            { name: "Dragon Slayer I", unlock: "Rune Platebody / Green d'hide body", completed: false },
+            { name: "Dragon Slayer II", unlock: "Ava's Assembler", completed: false },
+            { name: "Family Crest", unlock: "Steel Gauntlets", completed: false },
+            { name: "Animal Magnetism", unlock: "Ava's Devices", completed: false },
+            { name: "The Slug Menace", unlock: "Proselyte Armour", completed: false },
+            { name: "Recipe for Disaster (Subquests)", unlock: "Culinaromancer's Gloves", completed: false },
+            { name: "Lost City", unlock: "Dragon Dagger/Longsword", completed: false },
+            { name: "Monkey Madness I", unlock: "Dragon Scimitar", completed: false },
+            { name: "Monkey Madness II", unlock: "Heavy Ballista", completed: false },
+            { name: "The Fremennik Isles", unlock: "Helm of Neitiznot", completed: false },
+            { name: "The Fremennik Exiles", unlock: "Neitiznot Faceguard", completed: false },
+            { name: "Haunted Mine", unlock: "Salve Amulet", completed: false },
+            { name: "Beneath Cursed Sands", unlock: "Keris Partisan", completed: false },
+        ]
+    }
+};
+
+export const majorMilestonesData = [
+    { name: "Recipe for Disaster (Full)", info: "Barrows Gloves", completed: false },
+    { name: "Dragon Slayer II", info: "Myths' Guild / Vorkath", completed: false },
+    { name: "Song of the Elves", info: "Prifddinas / Zalcano / Gauntlet", completed: false },
+    { name: "Desert Treasure II", info: "Ancient Bosses / Rings", completed: false },
+    { name: "Quest Point Cape", info: "Access to Area / Emote", completed: false },
+    // Add others? Theatre of Blood entry?
+];
+
+// State variable for quest completion (using quest name as key)
+export let questCompletionState = {};
 
 export const diaries = {
     "ardougne": {

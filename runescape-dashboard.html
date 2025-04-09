@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OSRS Progress Dashboard</title>
-    <!-- Link Google Fonts (Example - Add your chosen fonts here if needed) -->
+    <!-- Link Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
@@ -24,15 +24,15 @@
                             <div id="combat-level-display">Combat Level: --</div>
                         </div>
                         <div class="header-title-row">
-                            <h1>OSRS Achievement & Goals Dashboard</h1>
+                            <h1>OSRS Progress Dashboard</h1>
                         </div>
                         <div class="header-actions">
                            <button id="fetch-hiscores-button" class="filter-button" title="Fetch current stats from OSRS Hiscores">Fetch Stats</button>
                            <input type="file" id="import-file-input" accept=".json" style="display: none;">
                            <button id="import-data-button" class="filter-button" title="Import saved dashboard data (.json)">Import</button>
                            <button id="export-data-button" class="filter-button" title="Export current dashboard data (.json)">Export</button>
-                           <!-- Optional: Dark Mode Toggle -->
-                           <!-- <button id="dark-mode-toggle" class="filter-button">🌙</button> -->
+                           <!-- Dark Mode Toggle -->
+                           <button id="theme-toggle-button" class="filter-button">🌙</button>
                        </div>
                     </div>
 
@@ -43,16 +43,18 @@
                         <button class="filter-button" data-view="goals-view">Milestone Goals</button>
                         <button class="filter-button" data-view="gear-view">Gear Progression</button>
                         <button class="filter-button" data-view="combat-tasks-view">Combat Tasks</button>
+                        <button class="filter-button" data-view="quests-view">Quests</button> <!-- <<< ADDED QUESTS BUTTON -->
                     </nav>
                 </div> <!-- End of stats-header-content -->
             </div>
 
             <div class="overall-stats">
-                <div>Tasks Completed: <span id="elite-completed">0</span>/<span id="elite-total">0</span></div>
-                <div>Overall Diary Progress: <span id="overall-progress">0</span>%</div>
-                <div>Total Levels Needed: <span id="total-levels-needed">0</span></div>
-                <div>Total XP Needed: <span id="total-xp-needed">0</span></div>
-                <div class="time-remaining">Est. Time Remaining: <span id="total-time">0</span> hrs</div>
+                <!-- Overall stats populated by JS -->
+                 <div>Diary Tasks: <span id="elite-completed">0</span>/<span id="elite-total">0</span></div>
+                 <div>Overall Diary: <span id="overall-progress">0</span>%</div>
+                 <div>Levels Needed: <span id="total-levels-needed">0</span></div>
+                 <div>XP Needed: <span id="total-xp-needed">0</span></div>
+                 <div class="time-remaining">Est. Time: <span id="total-time">0</span> hrs</div>
             </div>
         </header> <!-- End of .page-header -->
 
@@ -66,21 +68,13 @@
                         <!-- Dashboard Summary Section -->
                         <section id="dashboard-summary-section" class="container">
                             <h4>Milestone Progression</h4>
-                            <div class="summary-category" id="summary-milestones">
-                                <!-- Rows will be added by JS -->
-                            </div>
+                            <div class="summary-category" id="summary-milestones"></div>
                             <h4>Gear Progression</h4>
-                            <div class="summary-category" id="summary-gear">
-                                <!-- Rows will be added by JS -->
-                            </div>
+                            <div class="summary-category" id="summary-gear"></div>
                             <h4>Achievement Diary Progression</h4>
-                            <div class="summary-category" id="summary-diaries">
-                                <!-- Rows will be added by JS -->
-                            </div>
+                            <div class="summary-category" id="summary-diaries"></div>
                             <h4>Combat Achievement Progression</h4>
-                            <div class="summary-category" id="summary-combat-tasks">
-                                <!-- Populated by JS -->
-                            </div>
+                            <div class="summary-category" id="summary-combat-tasks"></div>
                         </section>
                         <!-- END Dashboard Summary Section -->
 
@@ -90,14 +84,12 @@
                                  <div>Miscellaneous Goals</div>
                                  <button id="add-goal-button" class="filter-button">Add Goal</button>
                              </div>
-                             <div class="miscellaneous-goals-content" id="miscellaneous-goals">
-                                 <!-- Goals will be added here by JavaScript -->
-                             </div>
+                             <div class="miscellaneous-goals-content" id="miscellaneous-goals"></div>
                          </section>
                         <!-- END Miscellaneous Goals -->
                     </div> <!-- END Wrapper for the left column -->
 
-                    <!-- Wrapper for the RIGHT column (Skill Summary + Save Button) -->
+                    <!-- Wrapper for the RIGHT column (Skill Summary) -->
                     <div class="dashboard-right-column">
                         <!-- Skill Requirements Summary -->
                         <section class="summary-card container">
@@ -106,13 +98,11 @@
                                  <button id="edit-skills-button" class="filter-button">Edit Skills</button>
                              </div>
                              <div class="sort-buttons">
-                                 <button class="filter-button active" data-sort="name">Sort by Name</button>
-                                 <button class="filter-button" data-sort="level">Sort by Level Needed</button>
+                                 <button class="filter-button" data-sort="name">Sort by Name</button>
+                                 <button class="filter-button active" data-sort="level">Sort by Level Needed</button>
                                  <button class="filter-button" data-sort="hours">Sort by Time</button>
                              </div>
-                             <div class="summary-content" id="skill-summary">
-                                 <!-- Skills will be populated by JavaScript -->
-                             </div>
+                             <div class="summary-content" id="skill-summary"></div>
                          </section>
                         <!-- END Skill Requirements Summary -->
                     </div> <!-- End Right Column -->
@@ -122,15 +112,7 @@
             <!-- Achievement Diaries View (Hidden by default) -->
             <div id="diaries-view" class="view-hidden">
                 <h2>Achievement Diaries</h2>
-                <section class="diaries-grid">
-                    <!-- Diary Cards will be populated by ui.js -> populateDiaries -->
-                    <!-- Example structure created by JS:
-                    <article class="diary-card container">
-                        <header class="diary-header" data-diary="ardougne">...</header>
-                        <div class="diary-content" id="ardougne-diary">...</div>
-                    </article>
-                    -->
-                </section>
+                <section class="diaries-grid"></section>
             </div> <!-- End of #diaries-view -->
 
             <!-- Milestone Goals View (Hidden by default) -->
@@ -144,39 +126,30 @@
                         </div>
                         <span id="cumulative-percentage" class="goal-percentage">0%</span>
                     </div>
-                    <!-- Optional: Add more cumulative info here -->
                 </section>
-                <section class="goals-grid">
-                    <!-- Goal Tiers populated by JS -->
-                </section>
+                <section class="goals-grid"></section>
             </div> <!-- End of #goals-view -->
 
             <!-- Gear Progression View (Hidden by default) -->
             <div id="gear-view" class="view-hidden">
                 <h2>Gear Progression</h2>
                 <section id="cumulative-gear-tracker" class="container cumulative-tracker">
-                   <div class="gear-stage-header"> <!-- Re-using goal styles for header consistency -->
+                   <div class="gear-stage-header">
                         <h3 style="color: var(--text-accent);">Overall Gear Cost</h3>
-                        <!-- Potentially add total cost here -->
-                         <div class="goal-progress-container"> <!-- Re-using progress bar -->
+                         <div class="goal-progress-container">
                             <div id="cumulative-gear-progress-bar" class="goal-progress-bar" style="background-color: var(--accent-green-muted);"></div>
                         </div>
                         <span id="cumulative-gear-percentage" class="goal-percentage">0%</span>
                    </div>
-                    <!-- Optional: Add more cumulative info here -->
                 </section>
-                <section class="gear-stages-grid">
-                    <!-- Gear stages populated by JS -->
-                </section>
+                <section class="gear-stages-grid"></section>
             </div> <!-- End of #gear-view -->
 
             <!-- Combat Achievements View (Hidden by default) -->
             <div id="combat-tasks-view" class="view-hidden">
                 <h2>Combat Achievements</h2>
-
-                <!-- Overall Progress Tracker -->
                 <section id="cumulative-ca-tracker" class="container cumulative-tracker">
-                    <div class="goal-tier-header"> <!-- Reusing goal styles for consistency -->
+                    <div class="goal-tier-header">
                         <h3 style="color: var(--text-accent);">Overall Progress</h3>
                          <span class="ca-points-display">Points: <span id="ca-total-points">0</span></span>
                          <span class="ca-tier-display">Current Tier: <span id="ca-current-tier">None</span></span>
@@ -186,8 +159,6 @@
                          <span id="cumulative-ca-percentage" class="goal-percentage">0%</span>
                     </div>
                 </section>
-
-                <!-- Filter Controls -->
                 <section class="ca-filters container">
                     <h4>Filters</h4>
                     <div class="filter-row">
@@ -227,13 +198,33 @@
                          <input type="text" id="ca-boss-search" placeholder="Filter by boss/task name...">
                      </div>
                 </section>
-                <!-- END Filter Controls -->
-
-                <!-- Grid for Bosses/Tasks -->
-                <section class="combat-tasks-grid">
-                    <!-- Boss cards populated here by JS -->
-                </section>
+                <section class="combat-tasks-grid"></section>
             </div> <!-- End of #combat-tasks-view -->
+
+            <!-- Quest Milestones View (Hidden by default) <<< ADDED QUESTS VIEW -->
+            <div id="quests-view" class="view-hidden">
+                <!-- Content will be populated by ui.js -> populateQuestsView -->
+                <!-- Example Structure added by JS:
+                <h2>Quest Milestones</h2>
+                <section class="quests-grid container">
+                    <section class="quest-section">
+                        <h3>Notable Unlocks</h3>
+                        <div class="tasks quest-list">
+                            <div class="task quest-milestone">
+                                <input type="checkbox" class="quest-checkbox" id="quest-Druidic-Ritual" data-quest-name="Druidic Ritual">
+                                <label class="task-description" for="quest-Druidic-Ritual">Druidic Ritual</label>
+                                <span class="goal-info">(Herblore)</span>
+                            </div>
+                            ...
+                        </div>
+                    </section>
+                    <section class="quest-section">
+                         <h3>Major Milestones</h3>
+                         <div class="tasks quest-list">...</div>
+                    </section>
+                </section>
+                -->
+            </div> <!-- End of #quests-view -->
 
         </main> <!-- End of Main Content Area -->
 
@@ -241,12 +232,10 @@
 
     <!-- Skill Editor Modal (Global) -->
     <div id="skill-editor-modal" class="modal">
-        <div class="modal-content container"> <!-- Re-use container styling -->
+        <div class="modal-content container">
             <span class="modal-close" onclick="closeSkillEditor()" title="Close Editor">×</span>
             <h3>Edit Skill Levels & XP Rates</h3>
-            <div class="skill-editor" id="skill-editor-container">
-                <!-- Skill inputs generated dynamically -->
-            </div>
+            <div class="skill-editor" id="skill-editor-container"></div>
             <div class="modal-actions">
                 <button class="filter-button" id="reset-skills">Reset to Default</button>
                 <button class="save-button" id="save-skills">Save Changes</button>

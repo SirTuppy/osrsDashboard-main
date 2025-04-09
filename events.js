@@ -1,473 +1,411 @@
-// events.js - TOP OF FILE
-import { miscellaneousGoals, milestoneGoalsData, gearProgressionData, combatAchievementsData } from './data.js';
-import { reorderMiscellaneousGoals, saveMiscellaneousGoals, saveMilestoneGoals, saveGearProgression, saveCombatAchievements, saveProgressToLocalStorage } from './storage.js';
-import { showView, updateGearStageCost, loadDiaryDifficultyContent, updateCompleteAllCheckboxState, updateCombatTierProgress, updateCumulativeCombatProgress, populateCombatTasks, updateCurrentCAFilters, getCurrentCAFilters } from './ui.js'; // Adjust path if needed
-import { populateMiscellaneousGoals, updateMilestoneTierProgress, updateCumulativeGoalProgress, updateGearStageProgress, updateCumulativeGearProgress, updateTaskProgressDisplay, updateDiaryHeaderProgress, updateGlobalProgress, updateDashboardSummaryProgress } from './ui.js'; // Need UI update functions
+// events.js
+// Description: Handles user interactions and updates application state and UI accordingly.
 
-// Drag state variables
+// --- IMPORTS ---
+// Data structures to modify
+import {
+    miscellaneousGoals, milestoneGoalsData, gearProgressionData,
+    combatAchievementsData, diaryCompletionState, questCompletionState, // Import state variables
+    // We don't usually need the static data structures like `diaries` or `questMilestonesData`
+    // directly in event handlers, unless checking properties not on the event target.
+} from './data.js';
+
+// Storage functions to persist changes
+import {
+    reorderMiscellaneousGoals, saveMiscellaneousGoals, saveMilestoneGoals,
+    saveGearProgression, saveCombatAchievements,
+    saveProgressToLocalStorage, // Main save function for diaries/misc
+    saveQuestCompletion // Specific save function for quests
+} from './storage.js';
+
+// UI functions to update the display or interact with UI elements
+import {
+    showView, populateMiscellaneousGoals, updateMilestoneTierProgress,
+    updateCumulativeGoalProgress, updateGearStageProgress, updateGearStageCost,
+    updateCumulativeGearProgress, updateTaskProgressDisplay, updateDiaryHeaderProgress,
+    updateGlobalProgress, updateDashboardSummaryProgress, updateCompleteAllCheckboxState,
+    updateCumulativeCombatProgress, populateCombatTasks, updateCurrentCAFilters,
+    getCurrentCAFilters, loadDiaryDifficultyContent
+    // No need to import populateQuestsView here, checkbox changes only toggle class/save state
+} from './ui.js';
+
+// Drag state variables for miscellaneous goals
 let draggedElement = null;
 let dragSourceIndex = null;
 
-/**
- * Handles changes to individual diary task checkboxes.
- * @param {Event} event
- */
+// --- DIARY EVENT HANDLERS (Refactored) ---
+
 export function handleDiaryTaskChange(event) {
     const checkbox = event.target;
-    if (!checkbox.classList.contains('task-checkbox')) return; // Ensure it's a task checkbox
-
+    if (!checkbox || !checkbox.classList.contains('task-checkbox')) return;
     const diaryKey = checkbox.dataset.diary;
     const difficulty = checkbox.dataset.difficulty;
+    const taskIndex = parseInt(checkbox.dataset.index);
+    const isChecked = checkbox.checked;
+    if (!diaryKey || !difficulty || isNaN(taskIndex)) return;
 
-    // Toggle visual style of the task row
-    checkbox.closest('.task')?.classList.toggle('task-completed', checkbox.checked);
+    // Update In-Memory State
+    if (!diaryCompletionState[diaryKey]) diaryCompletionState[diaryKey] = {};
+    if (!diaryCompletionState[diaryKey][difficulty]) diaryCompletionState[diaryKey][difficulty] = [];
+    const completedIndices = diaryCompletionState[diaryKey][difficulty];
+    const indexPosition = completedIndices.indexOf(taskIndex);
+    if (isChecked && indexPosition === -1) {
+        completedIndices.push(taskIndex);
+        completedIndices.sort((a, b) => a - b);
+    } else if (!isChecked && indexPosition > -1) {
+        completedIndices.splice(indexPosition, 1);
+    }
 
-    // Call imported UI functions
-    updateTaskProgressDisplay(diaryKey, difficulty); // Update difficulty-specific progress
-    updateDiaryHeaderProgress(diaryKey);             // Update overall card progress
-    updateGlobalProgress();                          // Update header overall progress
-    updateDashboardSummaryProgress();                // Update dashboard summary section
-
-    // --- ADD THIS ---
-    // Update the state of the corresponding "Complete All" checkbox
+    // Update UI & Save
+    checkbox.closest('.task')?.classList.toggle('task-completed', isChecked);
+    updateTaskProgressDisplay(diaryKey, difficulty);
+    updateDiaryHeaderProgress(diaryKey);
+    updateGlobalProgress();
+    updateDashboardSummaryProgress();
     updateCompleteAllCheckboxState(diaryKey, difficulty);
-    // --------------
-
-    console.log(`Diary task ${diaryKey}-${difficulty}-${checkbox.dataset.index} changed. Saving progress...`);
-     saveProgressToLocalStorage(); // Call the main save function on every change
-     // ---------------------
- }
-
- export function handleMiscGoalCheck(event) {
-    const index = parseInt(event.target.dataset.index);
-    if (index >= 0 && index < miscellaneousGoals.length) {
-        miscellaneousGoals[index].completed = event.target.checked;
-        event.target.closest('.task')?.classList.toggle('task-completed', event.target.checked);
-        saveMiscellaneousGoals(); // Save on change
-    }
+    saveProgressToLocalStorage(); // Saves diaries AND misc goals
 }
 
-export function handleMiscGoalDescChange(event) {
-     const index = parseInt(event.target.dataset.index);
-     const newDescription = event.target.value;
-     if (index >= 0 && index < miscellaneousGoals.length) {
-        miscellaneousGoals[index].description = newDescription.trim();
-        saveMiscellaneousGoals();
-     }
-}
- export function handleMiscGoalDescKey(event) {
-    if (event.key === 'Enter') {
-        event.target.blur();
-    }
- }
-
-/**
- * Handles toggling the master "Complete All" checkbox for a difficulty.
- * Directly updates child checkboxes and relevant UI elements.
- * @param {Event} event
- */
 export function handleCompleteAllToggle(event) {
     const masterCheckbox = event.target;
-    if (!masterCheckbox.classList.contains('complete-all-checkbox')) return;
-
+    if (!masterCheckbox || !masterCheckbox.classList.contains('complete-all-checkbox')) return;
     const diaryKey = masterCheckbox.dataset.diary;
     const difficulty = masterCheckbox.dataset.difficulty;
-    const isChecked = masterCheckbox.checked; // The NEW desired state for all tasks
-
+    const isChecked = masterCheckbox.checked;
     if (!diaryKey || !difficulty) return;
-
     const taskCategory = masterCheckbox.closest('.task-category');
     if (!taskCategory) return;
-
     const taskCheckboxes = taskCategory.querySelectorAll(`.task-checkbox[data-diary="${diaryKey}"][data-difficulty="${difficulty}"]`);
+    const newIndices = [];
 
-    console.log(`Setting all ${difficulty} tasks in ${diaryKey} to ${isChecked}`);
-
-    // --- Directly update DOM for child checkboxes ---
+    // Update In-Memory State & DOM Checkboxes
+    if (!diaryCompletionState[diaryKey]) diaryCompletionState[diaryKey] = {};
     taskCheckboxes.forEach(checkbox => {
         checkbox.checked = isChecked;
-        // Update visual style directly
         checkbox.closest('.task')?.classList.toggle('task-completed', isChecked);
+        if (isChecked) {
+            const taskIndex = parseInt(checkbox.dataset.index);
+            if (!isNaN(taskIndex)) newIndices.push(taskIndex);
+        }
     });
-    // -----------------------------------------------
+    if (isChecked) newIndices.sort((a, b) => a - b);
+    diaryCompletionState[diaryKey][difficulty] = newIndices;
 
-    // --- Update UI elements ONCE ---
+    // Update UI & Save
     updateTaskProgressDisplay(diaryKey, difficulty);
     updateDiaryHeaderProgress(diaryKey);
     updateGlobalProgress();
     updateDashboardSummaryProgress();
     masterCheckbox.indeterminate = false;
-
-    // --- ADD AUTO-SAVE ---
-     console.log(`Toggled all ${diaryKey}-${difficulty} tasks. Saving progress...`);
-     saveProgressToLocalStorage(); // Call the main save function after toggling all
-     // ---------------------
+    saveProgressToLocalStorage(); // Saves diaries AND misc goals
 }
 
- /**
- * Handles clicks on the difficulty tabs within a diary card.
- * @param {Event} event
- */
 export function handleDifficultyTabClick(event) {
     const button = event.target.closest('.diff-button');
-    if (!button) return; // Click wasn't on a difficulty button
-
+    if (!button) return;
     const diaryKey = button.dataset.diary;
     const difficulty = button.dataset.difficulty;
     const difficultyTabsContainer = button.closest('.difficulty-tabs');
-
     if (!diaryKey || !difficulty || !difficultyTabsContainer) return;
-
-    // Remove active state from all buttons in this tab set
-    difficultyTabsContainer.querySelectorAll('.diff-button').forEach(btn => {
-        btn.classList.remove('active-diff');
-    });
-
-    // Add active state to the clicked button
+    difficultyTabsContainer.querySelectorAll('.diff-button').forEach(btn => btn.classList.remove('active-diff'));
     button.classList.add('active-diff');
-
-    // Load the content for the selected difficulty
     loadDiaryDifficultyContent(diaryKey, difficulty);
 }
 
- export function handleMiscGoalRemove(event) { // Renamed from removeMiscellaneousGoal
-    const button = event.target.closest('.remove-goal-button');
-    if (!button) return;
-    const index = parseInt(button.dataset.index);
-    if (index >= 0 && index < miscellaneousGoals.length) {
-        miscellaneousGoals.splice(index, 1);
-        populateMiscellaneousGoals(); // Use imported UI function
-        saveMiscellaneousGoals(); // Use imported storage function
-    }
-}
-
-/**
- * Handles changes to individual Combat Achievement task checkboxes.
- * Finds task using boss key and task name from dataset.
- */
-export function handleCombatTaskChange(event) {
-    const checkbox = event.target;
-    if (!checkbox.classList.contains('ca-task-checkbox')) return;
-
-    const bossKey = checkbox.dataset.bossKey;
-    const taskName = checkbox.dataset.taskName; // Use name to find task
-    const isChecked = checkbox.checked;
-
-    if (!bossKey || !taskName || !combatAchievementsData[bossKey]?.tasks) {
-         console.error(`Could not find data for CA task: boss=${bossKey}, name=${taskName}`);
-         return;
-    }
-
-    // Find the specific task object in the data structure
-    const taskIndex = combatAchievementsData[bossKey].tasks.findIndex(t => t.name === taskName);
-
-    if (taskIndex !== -1) {
-        // Update data state
-        combatAchievementsData[bossKey].tasks[taskIndex].achieved = isChecked;
-
-        // Update UI
-        checkbox.closest('.task').classList.toggle('task-completed', isChecked);
-
-        // Update the progress display IN THE BOSS HEADER for filtered tasks
-        // We might need a new function for this, or skip it if too complex for now
-        // updateBossHeaderProgress(bossKey); // New function needed
-
-        updateCumulativeCombatProgress(); // Update overall progress/points/tier name
-        updateDashboardSummaryProgress(); // Update summary on main dashboard
-
-        // Save progress
-        saveCombatAchievements(); // Save immediately on change
-
-    } else {
-         console.error(`Combat Task data object not found for name: ${taskName} under boss key: ${bossKey}`);
-    }
-}
-
-// --- NEW: CA Filter Handlers ---
-
-// Handles clicks on Tier filter buttons
-export function handleCATierFilter(event) {
-    const button = event.target.closest('.filter-button[data-filter-type="tier"]');
-    if (!button) return;
-
-    const value = button.dataset.filterValue;
-    const container = button.closest('.filter-options');
-    let currentFilters = getCurrentCAFilters(); // Get current state
-
-    // Logic for handling 'all' vs specific tiers (multi-select for tiers)
-    if (value === 'all') {
-        currentFilters.tiers = ['all'];
-        container.querySelectorAll('.filter-button').forEach(btn => btn.classList.remove('active'));
-        button.classList.add('active');
-    } else {
-        // Remove 'all' if active
-        const allButton = container.querySelector('[data-filter-value="all"]');
-        if (allButton) allButton.classList.remove('active');
-
-        // Toggle the clicked button's state
-        button.classList.toggle('active');
-
-        // Update the tiers array based on active buttons
-        const activeButtons = container.querySelectorAll('.filter-button.active');
-        if (activeButtons.length === 0) {
-            // If none are active, default back to 'all'
-            currentFilters.tiers = ['all'];
-            if (allButton) allButton.classList.add('active');
-        } else {
-            currentFilters.tiers = Array.from(activeButtons).map(btn => btn.dataset.filterValue);
-        }
-    }
-
-    updateCurrentCAFilters(currentFilters); // Update state
-    populateCombatTasks(); // Re-render list
-}
-
-// Handles clicks on Type filter buttons (similar logic to Tier)
-export function handleCATypeFilter(event) {
-    const button = event.target.closest('.filter-button[data-filter-type="type"]');
-    if (!button) return;
-
-    const value = button.dataset.filterValue;
-    const container = button.closest('.filter-options');
-    let currentFilters = getCurrentCAFilters();
-
-    if (value === 'all') {
-        currentFilters.types = ['all'];
-        container.querySelectorAll('.filter-button').forEach(btn => btn.classList.remove('active'));
-        button.classList.add('active');
-    } else {
-        const allButton = container.querySelector('[data-filter-value="all"]');
-        if (allButton) allButton.classList.remove('active');
-        button.classList.toggle('active');
-        const activeButtons = container.querySelectorAll('.filter-button.active');
-        if (activeButtons.length === 0) {
-            currentFilters.types = ['all'];
-            if (allButton) allButton.classList.add('active');
-        } else {
-            currentFilters.types = Array.from(activeButtons).map(btn => btn.dataset.filterValue);
-        }
-    }
-
-    updateCurrentCAFilters(currentFilters);
-    populateCombatTasks();
-}
-
-// Handles clicks on Status filter buttons (single select logic)
-export function handleCAStatusFilter(event) {
-    const button = event.target.closest('.filter-button[data-filter-type="status"]');
-    if (!button) return;
-
-    const value = button.dataset.filterValue;
-    const container = button.closest('.filter-options');
-    let currentFilters = getCurrentCAFilters();
-
-    // Only one status can be active
-    currentFilters.status = value;
-    container.querySelectorAll('.filter-button').forEach(btn => btn.classList.remove('active'));
-    button.classList.add('active');
-
-    updateCurrentCAFilters(currentFilters);
-    populateCombatTasks();
-}
-
-// Handles input in the Boss search box
-export function handleCABossSearch(event) {
-    const searchTerm = event.target.value.trim();
-    let currentFilters = getCurrentCAFilters();
-
-    currentFilters.bossSearch = searchTerm;
-
-    updateCurrentCAFilters(currentFilters);
-    // Optional: Debounce this call if performance is an issue on rapid typing
-    populateCombatTasks();
-}
-
-export function handleMilestoneGoalChange(event) {
-    const checkbox = event.target;
-    const tier = checkbox.dataset.tier;
-    const index = parseInt(checkbox.dataset.index);
-    if (milestoneGoalsData[tier] && milestoneGoalsData[tier].goals[index] !== undefined) {
-        milestoneGoalsData[tier].goals[index].achieved = checkbox.checked;
-        checkbox.closest('.task').classList.toggle('task-completed', checkbox.checked);
-        // Call imported functions
-        updateMilestoneTierProgress(tier);
-        saveMilestoneGoals();
-        updateCumulativeGoalProgress();
-        updateDashboardSummaryProgress();
-    } else {
-         console.error(`Goal data not found for tier: ${tier}, index: ${index}`);
-    }
-}
-
-export function handleGearItemChange(event) {
-    const checkbox = event.target;
-    const stageKey = checkbox.dataset.stage;
-    const index = parseInt(checkbox.dataset.index);
-    if (gearProgressionData[stageKey] && gearProgressionData[stageKey].items[index] !== undefined) {
-        gearProgressionData[stageKey].items[index].achieved = checkbox.checked;
-        checkbox.closest('.task').classList.toggle('task-completed', checkbox.checked);
-
-        // Call imported functions
-        saveGearProgression(); // Save the change
-        updateGearStageProgress(stageKey); // Update the % bar for this stage
-        updateGearStageCost(stageKey);   // <-- Add this call to update the cost total
-        updateCumulativeGearProgress(); // Update the overall gear % bar
-        updateDashboardSummaryProgress(); // Update the dashboard summary section
-    } else {
-        console.error(`Gear data not found for stage: ${stageKey}, index: ${index}`);
-    }
-}
-
-// events.js
-
 export function toggleDiaryContent(event) {
-    // Find the diary header that was clicked (or whose child was clicked)
     const clickedHeader = event.target.closest('.diary-header');
-    if (!clickedHeader) return; // Exit if the click wasn't on a header
-
-    // Find the parent diary card
+    if (!clickedHeader) return;
     const parentCard = clickedHeader.closest('.diary-card');
-    if (!parentCard) {
-        console.warn("Could not find parent diary card for clicked header:", clickedHeader);
-        return;
-    }
-
-    // Find the content associated with THIS card
-    const targetContent = parentCard.querySelector('.diary-content'); // Find content within the same card
-    if (!targetContent) {
-        console.warn("Could not find diary content within the card:", parentCard);
-        return;
-    }
-
-    // Check if the clicked content is *already* active
+    if (!parentCard) return;
+    const targetContent = parentCard.querySelector('.diary-content');
+    if (!targetContent) return;
     const isAlreadyActive = targetContent.classList.contains('active');
-
-    // Find the main container for all diary cards in this view
-    const diariesContainer = parentCard.closest('.diaries-grid'); // Find the grid container
-    if (!diariesContainer) {
-        console.warn("Could not find the main diaries grid container.");
-        return;
-    }
-
-    // 1. Close ALL currently open diary contents within this grid first
+    const diariesContainer = parentCard.closest('.diaries-grid');
+    if (!diariesContainer) return;
+    // Close all others first
     diariesContainer.querySelectorAll('.diary-content.active').forEach(activeContent => {
         activeContent.classList.remove('active');
     });
-
-    // 2. If the clicked one WASN'T already active, open it now.
+    // Open the target if it wasn't already open
     if (!isAlreadyActive) {
         targetContent.classList.add('active');
     }
 }
 
-export function addMiscellaneousGoal() {
-    miscellaneousGoals.push({ description: "", completed: false });
-    populateMiscellaneousGoals(); // Call UI update
-    // Focus logic can stay here or move to UI function
-    const goalsContainer = document.getElementById('miscellaneous-goals');
-    const newInput = goalsContainer?.querySelector('.task:last-child input[type="text"]');
-    if (newInput) newInput.focus();
-    saveMiscellaneousGoals(); // Save new state
+// --- QUEST EVENT HANDLER (NEW) ---
+
+/**
+ * Handles changes to individual quest milestone checkboxes.
+ * Updates in-memory state and saves.
+ * @param {Event} event - The change event from the quest checkbox.
+ */
+export function handleQuestCompletionChange(event) {
+    const checkbox = event.target;
+    if (!checkbox || !checkbox.dataset.questName) return; // Check for the data attribute
+
+    const questName = checkbox.dataset.questName;
+    const isChecked = checkbox.checked;
+
+    // Update In-Memory State (questCompletionState)
+    questCompletionState[questName] = isChecked;
+
+    // Toggle visual style
+    checkbox.closest('.task')?.classList.toggle('task-completed', isChecked);
+
+    // Save the updated quest state
+    saveQuestCompletion();
+
+    // Optional: Update any overall quest progress indicators if you add them
+    // updateOverallQuestProgress();
 }
 
-export function handleViewNavigation(event) {
-    const button = event.target.closest('.view-navigation .filter-button[data-view]');
-    if (button) {
-       const viewId = button.dataset.view;
-       if (viewId && typeof showView === 'function') { // Check if showView is imported
-           showView(viewId);
-       } else if (!showView) {
-            console.error("showView function not imported correctly in events.js");
-       }
+
+// --- MISCELLANEOUS GOAL EVENT HANDLERS ---
+
+export function handleMiscGoalCheck(event) {
+    const checkbox = event.target;
+    const index = parseInt(checkbox.dataset.index);
+    if (index >= 0 && index < miscellaneousGoals.length) {
+        miscellaneousGoals[index].completed = checkbox.checked;
+        checkbox.closest('.task')?.classList.toggle('task-completed', checkbox.checked);
+        saveMiscellaneousGoals(); // Saves only misc goals
     }
 }
 
+export function handleMiscGoalDescChange(event) {
+    const input = event.target;
+    const index = parseInt(input.dataset.index);
+    const newDescription = input.value;
+    if (index >= 0 && index < miscellaneousGoals.length) {
+        miscellaneousGoals[index].description = newDescription.trim();
+        saveMiscellaneousGoals();
+    }
+}
+
+export function handleMiscGoalDescKey(event) {
+    if (event.key === 'Enter') event.target.blur();
+}
+
+export function handleMiscGoalRemove(event) {
+    const button = event.target.closest('.remove-goal-button');
+    if (!button) return;
+    const index = parseInt(button.dataset.index);
+    if (index >= 0 && index < miscellaneousGoals.length) {
+        miscellaneousGoals.splice(index, 1);
+        saveMiscellaneousGoals(); // Save the change first
+        populateMiscellaneousGoals(); // Then re-render UI
+    }
+}
+
+export function addMiscellaneousGoal() {
+    miscellaneousGoals.push({ description: "", completed: false });
+    saveMiscellaneousGoals();
+    populateMiscellaneousGoals();
+    const goalsContainer = document.getElementById('miscellaneous-goals');
+    const newInput = goalsContainer?.querySelector('.task:last-child input[type="text"]');
+    if (newInput) newInput.focus();
+}
+
+// --- MILESTONE GOAL EVENT HANDLERS ---
+
+export function handleMilestoneGoalChange(event) {
+    const checkbox = event.target;
+    const tier = checkbox.dataset.tier;
+    const index = parseInt(checkbox.dataset.index);
+    if (milestoneGoalsData[tier]?.goals?.[index] !== undefined) {
+        milestoneGoalsData[tier].goals[index].achieved = checkbox.checked;
+        checkbox.closest('.task')?.classList.toggle('task-completed', checkbox.checked);
+        saveMilestoneGoals();
+        updateMilestoneTierProgress(tier);
+        updateCumulativeGoalProgress();
+        updateDashboardSummaryProgress();
+    } else console.error(`Milestone goal data not found: ${tier}, ${index}`);
+}
+
+// --- GEAR PROGRESSION EVENT HANDLERS ---
+
+export function handleGearItemChange(event) {
+    const checkbox = event.target;
+    const stageKey = checkbox.dataset.stage;
+    const index = parseInt(checkbox.dataset.index);
+    if (gearProgressionData[stageKey]?.items?.[index] !== undefined) {
+        gearProgressionData[stageKey].items[index].achieved = checkbox.checked;
+        checkbox.closest('.task')?.classList.toggle('task-completed', checkbox.checked);
+        saveGearProgression();
+        updateGearStageProgress(stageKey);
+        updateGearStageCost(stageKey);
+        updateCumulativeGearProgress();
+        updateDashboardSummaryProgress();
+    } else console.error(`Gear data not found: ${stageKey}, ${index}`);
+}
+
+// --- COMBAT ACHIEVEMENT EVENT HANDLERS ---
+
+export function handleCombatTaskChange(event) {
+    const checkbox = event.target;
+    if (!checkbox.classList.contains('ca-task-checkbox')) return;
+    const bossKey = checkbox.dataset.bossKey;
+    const taskName = checkbox.dataset.taskName;
+    const isChecked = checkbox.checked;
+    if (!bossKey || !taskName || !combatAchievementsData[bossKey]?.tasks) return;
+    const task = combatAchievementsData[bossKey].tasks.find(t => t.name === taskName);
+    if (task) {
+        task.achieved = isChecked;
+        checkbox.closest('.task')?.classList.toggle('task-completed', isChecked);
+        // Future: updateBossHeaderProgress(bossKey); // Requires recalculating filtered counts
+        updateCumulativeCombatProgress();
+        updateDashboardSummaryProgress();
+        saveCombatAchievements();
+    } else console.error(`CA task object not found: ${bossKey}, ${taskName}`);
+}
+
+// CA Filter Handlers
+export function handleCATierFilter(event) {
+    const button = event.target.closest('.filter-button[data-filter-type="tier"]');
+    if (!button) return;
+    const value = button.dataset.filterValue;
+    let currentFilters = getCurrentCAFilters();
+    if (value === 'all') currentFilters.tiers = ['all'];
+    else {
+        let tiers = currentFilters.tiers.filter(t => t !== 'all');
+        const index = tiers.indexOf(value);
+        if (index > -1) tiers.splice(index, 1); else tiers.push(value);
+        currentFilters.tiers = tiers.length > 0 ? tiers : ['all'];
+    }
+    updateCurrentCAFilters(currentFilters); populateCombatTasks();
+}
+
+export function handleCATypeFilter(event) {
+    const button = event.target.closest('.filter-button[data-filter-type="type"]');
+    if (!button) return;
+    const value = button.dataset.filterValue;
+    let currentFilters = getCurrentCAFilters();
+    if (value === 'all') currentFilters.types = ['all'];
+    else {
+        let types = currentFilters.types.filter(t => t.toLowerCase() !== 'all');
+        const valueLower = value.toLowerCase();
+        const index = types.findIndex(t => t.toLowerCase() === valueLower);
+        if (index > -1) types.splice(index, 1); else types.push(value);
+        currentFilters.types = types.length > 0 ? types : ['all'];
+    }
+    updateCurrentCAFilters(currentFilters); populateCombatTasks();
+}
+
+export function handleCAStatusFilter(event) {
+    const button = event.target.closest('.filter-button[data-filter-type="status"]');
+    if (!button) return;
+    let currentFilters = getCurrentCAFilters();
+    currentFilters.status = button.dataset.filterValue;
+    updateCurrentCAFilters(currentFilters); populateCombatTasks();
+}
+
+export function handleCABossSearch(event) {
+    const searchTerm = event.target.value.trim();
+    let currentFilters = getCurrentCAFilters();
+    currentFilters.bossSearch = searchTerm;
+    updateCurrentCAFilters(currentFilters);
+    populateCombatTasks(); // Consider debouncing later
+}
+
+// --- NAVIGATION & OTHER UI INTERACTION HANDLERS ---
+
+export function handleViewNavigation(event) {
+    const button = event.target.closest('.view-navigation .filter-button[data-view]');
+    if (button?.dataset?.view) showView(button.dataset.view);
+}
+
+/**
+ * Handles clicking on skill names in the summary to highlight related diary tasks.
+ * Includes logic to switch views and open the relevant diary card.
+ */
 export function handleSkillNameClick(event) {
-    // ... (code from script.js) ...
-    // Ensure it calls add/remove classList correctly
     const clickedSkillElement = event.target.closest('.skill-name.clickable');
     if (!clickedSkillElement) return;
     const skillName = clickedSkillElement.dataset.skillName;
     const isActive = clickedSkillElement.classList.contains('active');
-    document.querySelectorAll('.task.skill-highlight').forEach(task => task.classList.remove('skill-highlight'));
+
+    // Deactivate current highlights
+    document.querySelectorAll('.task.skill-highlight').forEach(t => t.classList.remove('skill-highlight'));
     document.querySelectorAll('.skill-name.clickable.active').forEach(el => el.classList.remove('active'));
+
     if (!isActive) {
-        clickedSkillElement.classList.add('active');
-        document.querySelectorAll('.task').forEach(taskElement => {
-            const requiredSkills = taskElement.dataset.requiresSkill || '';
-            if (requiredSkills.split(' ').includes(skillName)) {
-                taskElement.classList.add('skill-highlight');
-                const diaryContent = taskElement.closest('.diary-content');
-                // Check if ui.js showView function exists and is imported if needed
-                // Or just directly manipulate classList here
-                if (diaryContent && !diaryContent.classList.contains('active')) {
-                    diaryContent.classList.add('active');
-                }
+        clickedSkillElement.classList.add('active'); // Activate clicked skill name
+        const escapedSkillName = CSS.escape(skillName); // Escape skill name for querySelector
+        const firstMatchingTask = document.querySelector(`.task[data-requires-skill~="${escapedSkillName}"]`);
+
+        if (firstMatchingTask) {
+            const targetContent = firstMatchingTask.closest('.diary-content');
+            const parentCard = firstMatchingTask.closest('.diary-card');
+            const diariesContainer = firstMatchingTask.closest('.diaries-grid');
+            const diariesView = document.getElementById('diaries-view');
+
+            // Ensure Diaries view is visible
+            if (diariesView && diariesView.style.display === 'none') {
+                showView('diaries-view');
             }
+
+            // Open the correct diary card
+            if (targetContent && parentCard && diariesContainer && !targetContent.classList.contains('active')) {
+                diariesContainer.querySelectorAll('.diary-content.active').forEach(ac => ac.classList.remove('active'));
+                targetContent.classList.add('active');
+                // parentCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); // Optional scroll
+            }
+        }
+
+        // Highlight ALL tasks requiring the skill
+        document.querySelectorAll(`.task[data-requires-skill~="${escapedSkillName}"]`).forEach(taskElement => {
+            taskElement.classList.add('skill-highlight');
         });
     }
+    // Clicking active skill just deactivates highlights
 }
 
+// --- DRAG AND DROP HANDLERS (Miscellaneous Goals) ---
+
 export function handleDragStart(event) {
-    // Store the dragged element
-    draggedElement = event.target;
+    const target = event.target.closest('.draggable-goal');
+    if (!target) return;
+    draggedElement = target;
     dragSourceIndex = parseInt(draggedElement.dataset.index);
-    
-    // Add styling to show it's being dragged
-    setTimeout(() => {
-        draggedElement.classList.add('dragging');
-    }, 0);
-    
-    // Set data for drag operation
+    setTimeout(() => draggedElement.classList.add('dragging'), 0);
     event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setData('text/plain', dragSourceIndex);
+    event.dataTransfer.setData('text/plain', dragSourceIndex.toString());
 }
 
 export function handleDragOver(event) {
-    // Prevent default to allow drop
     event.preventDefault();
-    
-    // Add visual cue for drop target
-    if (event.target.classList.contains('draggable-goal') && event.target !== draggedElement) {
-        event.target.classList.add('drag-over');
+    event.dataTransfer.dropEffect = 'move';
+    const target = event.target.closest('.draggable-goal');
+    if (target && target !== draggedElement) {
+        document.querySelectorAll('.draggable-goal.drag-over').forEach(i => i.classList.remove('drag-over'));
+        target.classList.add('drag-over');
     }
-    
     return false;
 }
 
 export function handleDragLeave(event) {
-    // Remove visual cue
-    if (event.target.classList.contains('draggable-goal')) {
-        event.target.classList.remove('drag-over');
-    }
+    const target = event.target.closest('.draggable-goal');
+    if (target) target.classList.remove('drag-over');
 }
 
 export function handleDragEnd(event) {
-    // Remove all drag classes
-    document.querySelectorAll('.draggable-goal').forEach(item => {
-        item.classList.remove('dragging');
-        item.classList.remove('drag-over');
+    document.querySelectorAll('.draggable-goal.dragging, .draggable-goal.drag-over').forEach(i => {
+        i.classList.remove('dragging', 'drag-over');
     });
-    
     draggedElement = null;
+    dragSourceIndex = null; // Also reset index state
 }
 
 export function handleDrop(event) {
-    // Prevent default actions
     event.preventDefault();
-    
-    // Get the target element
     const dropTarget = event.target.closest('.draggable-goal');
-    if (!dropTarget || dropTarget === draggedElement) return;
-    
-    // Get the target index
+    if (!dropTarget || dropTarget === draggedElement || dragSourceIndex === null) {
+        document.querySelectorAll('.draggable-goal.drag-over').forEach(i => i.classList.remove('drag-over'));
+        return false;
+    }
     const dropTargetIndex = parseInt(dropTarget.dataset.index);
-    
-    // Reorder the goals
-    reorderMiscellaneousGoals(dragSourceIndex, dropTargetIndex);
-    
-    // Repopulate the goals to reflect the new order
-    populateMiscellaneousGoals();
-    
+    dropTarget.classList.remove('drag-over');
+    reorderMiscellaneousGoals(dragSourceIndex, dropTargetIndex); // Reorder data (saves)
+    populateMiscellaneousGoals(); // Repopulate UI
     return false;
 }
